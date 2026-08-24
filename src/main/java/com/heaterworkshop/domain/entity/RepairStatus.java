@@ -1,4 +1,4 @@
-package com.heaterworkshop.domain;
+package com.heaterworkshop.domain.entity;
 
 public enum RepairStatus {
     RECEIVED,
