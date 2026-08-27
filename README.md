@@ -1,85 +1,85 @@
 # Heater Repair Workshop
 
-Backend Java puro para gestionar órdenes de reparación de calefones desde su recepción hasta su cierre. El proyecto aplica Arquitectura Limpia y patrones tácticos de Domain-Driven Design (DDD), manteniendo las reglas del negocio aisladas de frameworks y mecanismos de persistencia.
+Pure Java backend for managing water-heater repair orders from reception to completion. The project applies Clean Architecture and tactical Domain-Driven Design (DDD) patterns while keeping business rules isolated from frameworks and persistence mechanisms.
 
-## Lenguaje ubicuo y contexto delimitado
+## Ubiquitous Language and Bounded Context
 
-El contexto **Repair Management** comienza con la recepción de una orden y termina al completar la reparación. Facturación, inventario y entrega física quedan fuera de sus límites.
+The **Repair Management** bounded context begins when the workshop receives a repair order and ends when the repair is completed. Billing, inventory management, and physical delivery are outside its boundaries.
 
-| Concepto | Definición |
+| Concept | Definition |
 |---|---|
-| Repair Order | Agregado que representa el ciclo completo de una reparación. |
-| Diagnosis | Evaluación técnica válida que permite iniciar el trabajo. |
-| Repair Status | Estado de la orden: recibida, en progreso o completada. |
-| Customer Contact | Número internacional utilizado para informar al cliente. |
-| Repair Order Repository | Contrato para almacenar y recuperar órdenes sin decidir la tecnología. |
+| Repair Order | Aggregate representing the complete lifecycle of a repair. |
+| Diagnosis | Valid technical assessment required to start the repair. |
+| Repair Status | Current stage of an order: received, in progress, or completed. |
+| Customer Contact | International phone number used to notify the customer. |
+| Repair Order Repository | Contract for storing and retrieving orders without selecting a persistence technology. |
 
-## Arquitectura
+## Architecture
 
 ```text
 src/main/java/com/heaterworkshop/
-├── domain/                       # Reglas del negocio; Java puro
-│   ├── entity/                   # RepairOrder como Aggregate Root
-│   ├── valueobject/              # Records inmutables y auto-validantes
-│   ├── exception/                # Excepciones del negocio
-│   └── repository/               # Contratos de persistencia
-├── application/
-│   ├── port/                     # Contratos requeridos por los casos de uso
-│   └── usecase/                  # Orquestación de flujos del negocio
-└── infrastructure/
-    └── persistence/              # Implementaciones tecnológicas reemplazables
+|-- domain/                       # Pure Java business rules
+|   |-- entity/                   # RepairOrder aggregate root
+|   |-- valueobject/              # Immutable, self-validating records
+|   |-- exception/                # Business exceptions
+|   `-- repository/               # Persistence contracts
+|-- application/
+|   |-- port/                     # Contracts required by use cases
+|   `-- usecase/                  # Business-flow orchestration
+`-- infrastructure/
+    `-- persistence/              # Replaceable technical implementations
 ```
 
-La dirección de las dependencias es:
+The dependency direction is:
 
 ```text
 infrastructure -> application -> domain
 ```
 
-El dominio no contiene anotaciones ni dependencias de Spring, JPA, bases de datos u otros frameworks.
+The domain contains no Spring, JPA, database, or other framework annotations or dependencies.
 
-## Patrones aplicados
+## Applied Patterns
 
-- `RepairOrder` es una entidad con identidad y la raíz del agregado.
-- `RepairOrderId`, `CustomerContact` y `Diagnosis` son Value Objects implementados como `record`.
-- Los Value Objects rechazan datos inválidos durante su construcción.
-- Las transiciones de estado se protegen dentro de `RepairOrder`.
-- `RepairOrderRepository` es una interfaz pura ubicada en el dominio.
-- Los casos de uso reciben sus contratos mediante inyección por constructor.
-- `InMemoryRepairOrderRepository` demuestra que la infraestructura puede sustituirse sin modificar el núcleo.
+- `RepairOrder` is an entity with a unique identity and acts as the aggregate root.
+- `RepairOrderId`, `CustomerContact`, and `Diagnosis` are Value Objects implemented as Java records.
+- Value Objects reject invalid data during construction.
+- State transitions are protected within `RepairOrder`.
+- `RepairOrderRepository` is a pure interface located in the domain.
+- Use cases receive their contracts through constructor injection.
+- `InMemoryRepairOrderRepository` demonstrates that infrastructure can be replaced without modifying the core.
 
-## Reglas del negocio
+## Business Rules
 
-- Una orden nueva comienza con estado `RECEIVED` y sin diagnóstico.
-- Una orden solo puede comenzar con un diagnóstico válido.
-- Solo una orden recibida puede pasar a `IN_PROGRESS`.
-- Solo una orden en progreso puede pasar a `COMPLETED`.
-- Al iniciar o completar una reparación se persiste la orden.
-- Al completar una reparación se notifica al cliente.
+- A new repair order starts in the `RECEIVED` state without a diagnosis.
+- A repair order can only start with a valid diagnosis.
+- Only a received order can transition to `IN_PROGRESS`.
+- Only an order in progress can transition to `COMPLETED`.
+- Starting or completing a repair persists the order.
+- Completing a repair notifies the customer.
 
-## Requisitos
+## Requirements
 
 - Java 17
-- Maven 3.9 o superior
+- Maven 3.9 or newer
 
-## Compilación y pruebas
+## Build and Test
 
-Compilar el proyecto:
+Compile the project:
 
 ```bash
 mvn clean compile
 ```
 
-Ejecutar las pruebas:
+Run the unit tests:
 
 ```bash
 mvn test
 ```
 
-Ejecutar todas las verificaciones y exigir 100% de cobertura de líneas y ramas:
+Run all checks and enforce 100% line and branch coverage:
 
 ```bash
 mvn clean verify
 ```
 
-El informe de cobertura queda disponible en `target/site/jacoco/index.html`.
+The coverage report is generated at `target/site/jacoco/index.html`.
