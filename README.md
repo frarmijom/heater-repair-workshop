@@ -1,39 +1,61 @@
-# Heater Repair Workshop — Hito 4
+# Heater Repair Workshop - Milestone 4
 
-Microservicio Spring Boot para gestionar órdenes de reparación de calefones. Conserva el dominio del Hito 3 aislado de frameworks y agrega adaptadores REST, persistencia JPA/PostgreSQL, errores JSON centralizados y documentación OpenAPI restringida al perfil `dev`.
+A Spring Boot microservice for managing heater repair orders. It preserves the framework-independent domain model introduced in Milestone 3 and adds REST adapters, JPA/PostgreSQL persistence, centralized JSON error responses, and OpenAPI documentation restricted to the `dev` profile.
 
-## Requisitos
+## Requirements
 
-- Java 17+
-- Maven 3.9+
-- Docker con Docker Compose
+- Docker Engine or Docker Desktop
+- Docker Compose
 
-## Ejecución local
+Java 17 and Maven 3.9+ are only required when running the application without Docker.
+
+## Run with Docker
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
-Este comando construye y ejecuta tanto la API Spring Boot como PostgreSQL. No es necesario instalar Java o Maven dentro de WSL: la compilación se realiza en una imagen Maven y la aplicación final corre en una imagen JRE separada.
+This command builds and starts both the Spring Boot API and PostgreSQL. Java and Maven do not need to be installed on the host because the application is compiled in a Maven container and runs in a separate JRE image.
 
-Con el perfil `dev`, Swagger UI está en <http://localhost:8080/swagger-ui.html> y el contrato en <http://localhost:8080/v3/api-docs>.
+Check the services:
 
-En el perfil por defecto y en `prod`, ambos endpoints están deshabilitados:
+```bash
+docker compose ps
+docker compose logs -f app
+```
+
+The API is available at <http://localhost:8080>.
+
+## OpenAPI and profiles
+
+The Docker environment uses the `dev` profile by default. Under this profile, Swagger UI and the OpenAPI specification are available at:
+
+- Swagger UI: <http://localhost:8080/swagger-ui.html>
+- OpenAPI JSON: <http://localhost:8080/v3/api-docs>
+
+Swagger is disabled by default and under the `prod` profile. Start the production profile with:
 
 ```bash
 SPRING_PROFILES_ACTIVE=prod docker compose up -d --build
 ```
 
-## API REST
+In PowerShell, use:
 
-| Método | Ruta | Resultado |
+```powershell
+$env:SPRING_PROFILES_ACTIVE = "prod"
+docker compose up -d --build
+```
+
+## REST API
+
+| Method | Path | Result |
 |---|---|---|
-| `POST` | `/api/repair-orders` | Crea una orden en estado `RECEIVED` (`201`) |
-| `GET` | `/api/repair-orders/{id}` | Consulta una orden (`200`) |
-| `PATCH` | `/api/repair-orders/{id}/start` | Inicia una orden con diagnóstico (`200`) |
-| `PATCH` | `/api/repair-orders/{id}/complete` | Completa una orden y notifica (`200`) |
+| `POST` | `/api/repair-orders` | Creates an order in the `RECEIVED` state (`201`) |
+| `GET` | `/api/repair-orders/{id}` | Retrieves an order (`200`) |
+| `PATCH` | `/api/repair-orders/{id}/start` | Starts a received order with a diagnosis (`200`) |
+| `PATCH` | `/api/repair-orders/{id}/complete` | Completes an order and notifies the customer (`200`) |
 
-Crear una orden:
+Create an order:
 
 ```bash
 curl -i -X POST http://localhost:8080/api/repair-orders \
@@ -41,33 +63,68 @@ curl -i -X POST http://localhost:8080/api/repair-orders \
   -d '{"id":"ORDER-001","customerContact":"+56911112222"}'
 ```
 
-Iniciar y completar:
+Start and complete the order:
 
 ```bash
 curl -i -X PATCH http://localhost:8080/api/repair-orders/ORDER-001/start \
   -H "Content-Type: application/json" \
   -d '{"diagnosis":"Damaged ignition sensor"}'
+
 curl -i -X PATCH http://localhost:8080/api/repair-orders/ORDER-001/complete
 ```
 
-Los errores se entregan en un contrato JSON uniforme con `timestamp`, `status`, `error`, `message`, `path` y `validationErrors`.
+Errors use a consistent JSON contract containing `timestamp`, `status`, `error`, `message`, `path`, and `validationErrors`.
 
-La carpeta `bruno/` contiene una colección ejecutable que verifica el flujo crear → iniciar → completar.
+## Contract testing
 
-## Pruebas
+The `bruno/` directory contains an executable collection that verifies the complete create → start → complete workflow. Select its `local` environment while the Docker services are running.
+
+## Run without Docker
+
+Start only PostgreSQL:
+
+```bash
+docker compose up -d postgres
+```
+
+Then run Spring Boot with Java 17 and Maven 3.9+:
+
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+## Automated tests
 
 ```bash
 mvn clean verify
 ```
 
-La arquitectura mantiene la dirección de dependencias `infrastructure -> application -> domain`. Las entidades JPA viven exclusivamente en infraestructura y se traducen al agregado de dominio.
+The JaCoCo report is generated at `target/site/jacoco/index.html`.
 
-## Operación con Docker
+## Architecture
+
+The project follows Clean Architecture and keeps this dependency direction:
+
+```text
+infrastructure → application → domain
+```
+
+- `domain`: entities, value objects, business exceptions, and repository contracts.
+- `application`: use cases and outbound ports.
+- `infrastructure/web`: REST controllers, DTOs, validation, and global error handling.
+- `infrastructure/persistence`: JPA entities, Spring Data repositories, and domain mapping.
+- `infrastructure/config`: dependency wiring and development-only OpenAPI configuration.
+
+The domain contains no Spring or JPA annotations. Persistence entities remain in the infrastructure layer and are mapped to the domain aggregate.
+
+## Stop the services
 
 ```bash
-docker compose ps
-docker compose logs -f app
 docker compose down
 ```
 
-El volumen `heater_workshop_data` conserva la información de PostgreSQL al recrear los contenedores. Sólo se elimina si se solicita explícitamente con `docker compose down --volumes`.
+The `heater_workshop_data` volume preserves PostgreSQL data when containers are recreated. Remove it only when a full database reset is required:
+
+```bash
+docker compose down --volumes
+```
