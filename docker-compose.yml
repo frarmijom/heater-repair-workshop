@@ -1,0 +1,39 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: heater-repair-workshop:local
+    container_name: heater-workshop-api
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/heater_workshop
+      DB_USERNAME: heater
+      DB_PASSWORD: heater_secret
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: heater-workshop-postgres
+    environment:
+      POSTGRES_DB: heater_workshop
+      POSTGRES_USER: heater
+      POSTGRES_PASSWORD: heater_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - heater_workshop_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U heater -d heater_workshop"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  heater_workshop_data:
