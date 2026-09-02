@@ -1,0 +1,26 @@
+meta {
+  name: Start repair order
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/api/repair-orders/ORDER-001/start
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {"diagnosis":"Damaged ignition sensor"}
+}
+
+tests {
+  test("returns an in-progress order", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().status).to.equal("IN_PROGRESS");
+  });
+}

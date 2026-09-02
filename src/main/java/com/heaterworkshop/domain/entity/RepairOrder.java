@@ -18,6 +18,14 @@ public final class RepairOrder {
         this.status = RepairStatus.RECEIVED;
     }
 
+    public static RepairOrder restore(RepairOrderId id, CustomerContact customerContact,
+                                      RepairStatus status, Diagnosis diagnosis) {
+        RepairOrder order = new RepairOrder(id, customerContact);
+        order.status = status;
+        order.diagnosis = diagnosis;
+        return order;
+    }
+
     public void start(Diagnosis diagnosis) {
         if (status != RepairStatus.RECEIVED) {
             throw new InvalidRepairStateException("Only received orders can be started.");
