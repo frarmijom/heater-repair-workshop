@@ -7,6 +7,8 @@ import com.heaterworkshop.domain.valueobject.RepairOrderId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.List;
+import java.util.Comparator;
 
 public final class InMemoryRepairOrderRepository implements RepairOrderRepository {
 
@@ -20,5 +22,12 @@ public final class InMemoryRepairOrderRepository implements RepairOrderRepositor
     @Override
     public Optional<RepairOrder> findById(RepairOrderId id) {
         return Optional.ofNullable(orders.get(id));
+    }
+
+    @Override
+    public List<RepairOrder> findAllByReceivedAtDescending() {
+        return orders.values().stream()
+                .sorted(Comparator.comparing(RepairOrder::receivedAt).reversed())
+                .toList();
     }
 }

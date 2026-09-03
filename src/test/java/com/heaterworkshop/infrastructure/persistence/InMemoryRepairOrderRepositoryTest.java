@@ -5,6 +5,8 @@ import com.heaterworkshop.domain.valueobject.CustomerContact;
 import com.heaterworkshop.domain.valueobject.RepairOrderId;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,5 +32,22 @@ class InMemoryRepairOrderRepositoryTest {
 
         assertTrue(repository.findById(new RepairOrderId("ORDER-404")).isEmpty());
         assertEquals(0, repository.findById(new RepairOrderId("ORDER-404")).stream().count());
+    }
+
+    @Test
+    void listsOrdersNewestFirst() {
+        InMemoryRepairOrderRepository repository = new InMemoryRepairOrderRepository();
+        RepairOrder older = order("ORDER-001", "2026-09-03T18:00:00Z");
+        RepairOrder newer = order("ORDER-002", "2026-09-03T19:00:00Z");
+        repository.save(older);
+        repository.save(newer);
+
+        assertEquals(java.util.List.of(newer, older), repository.findAllByReceivedAtDescending());
+    }
+
+    private RepairOrder order(String id, String receivedAt) {
+        return new RepairOrder(new RepairOrderId(id), "Maria Gonzalez",
+                new CustomerContact("+56911112222"), "Bosch", "Therm 5700",
+                "Turns off", Instant.parse(receivedAt));
     }
 }
