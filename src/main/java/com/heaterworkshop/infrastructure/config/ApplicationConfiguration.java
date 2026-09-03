@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 public class ApplicationConfiguration {
     private static final Logger LOGGER = LoggerFactory.getLogger(ApplicationConfiguration.class);
     @Bean CreateRepairOrderUseCase createRepairOrderUseCase(RepairOrderRepository r) { return new CreateRepairOrderUseCase(r); }
+    @Bean ListRepairOrdersUseCase listRepairOrdersUseCase(RepairOrderRepository r) { return new ListRepairOrdersUseCase(r); }
     @Bean GetRepairOrderUseCase getRepairOrderUseCase(RepairOrderRepository r) { return new GetRepairOrderUseCase(r); }
     @Bean StartRepairUseCase startRepairUseCase(RepairOrderRepository r) { return new StartRepairUseCase(r); }
     @Bean CompleteRepairUseCase completeRepairUseCase(RepairOrderRepository r, CustomerNotifier n) { return new CompleteRepairUseCase(r, n); }

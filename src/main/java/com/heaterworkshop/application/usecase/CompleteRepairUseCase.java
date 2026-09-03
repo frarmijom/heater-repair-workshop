@@ -3,6 +3,8 @@ package com.heaterworkshop.application.usecase;
 import com.heaterworkshop.application.port.CustomerNotifier;
 import com.heaterworkshop.domain.entity.RepairOrder;
 import com.heaterworkshop.domain.repository.RepairOrderRepository;
+import com.heaterworkshop.domain.valueobject.RepairOrderId;
+import com.heaterworkshop.domain.exception.RepairOrderNotFoundException;
 
 public final class CompleteRepairUseCase {
 
@@ -14,12 +16,15 @@ public final class CompleteRepairUseCase {
         this.notifier = notifier;
     }
 
-    public void execute(RepairOrder order) {
+    public RepairOrder execute(RepairOrderId id) {
+        RepairOrder order = repository.findById(id)
+                .orElseThrow(() -> new RepairOrderNotFoundException(id.value()));
         order.complete();
         repository.save(order);
         notifier.notify(
                 order.customerContact(),
                 "Repair order " + order.id().value() + " has been completed."
         );
+        return order;
     }
 }

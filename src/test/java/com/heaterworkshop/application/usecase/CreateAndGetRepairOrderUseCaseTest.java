@@ -6,17 +6,29 @@ import com.heaterworkshop.domain.valueobject.RepairOrderId;
 import com.heaterworkshop.infrastructure.persistence.InMemoryRepairOrderRepository;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 class CreateAndGetRepairOrderUseCaseTest {
     @Test
     void createsPersistsAndRetrievesAnOrder() {
         InMemoryRepairOrderRepository repository = new InMemoryRepairOrderRepository();
-        CreateRepairOrderUseCase create = new CreateRepairOrderUseCase(repository);
+        Instant receivedAt = Instant.parse("2026-09-03T18:30:00Z");
+        UUID uuid = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        CreateRepairOrderUseCase create = new CreateRepairOrderUseCase(repository,
+                Clock.fixed(receivedAt, ZoneOffset.UTC), () -> uuid);
         GetRepairOrderUseCase get = new GetRepairOrderUseCase(repository);
 
-        RepairOrder created = create.execute(new RepairOrderId("ORDER-100"), new CustomerContact("+56911112222"));
+        RepairOrder created = create.execute("Maria Gonzalez", new CustomerContact("+56911112222"),
+                "Bosch", "Therm 5700", "Turns off");
 
-        assertSame(created, get.execute(new RepairOrderId("ORDER-100")));
+        assertEquals("ORDER-550E8400-E29B-41D4-A716-446655440000", created.id().value());
+        assertEquals(receivedAt, created.receivedAt());
+        assertSame(created, get.execute(created.id()));
     }
 }

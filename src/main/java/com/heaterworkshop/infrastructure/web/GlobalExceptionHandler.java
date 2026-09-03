@@ -8,6 +8,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -40,6 +41,16 @@ public class GlobalExceptionHandler {
         Map<String, String> fields = new LinkedHashMap<>();
         ex.getBindingResult().getFieldErrors().forEach(error -> fields.putIfAbsent(error.getField(), error.getDefaultMessage()));
         return response(HttpStatus.BAD_REQUEST, "Request validation failed.", request, fields);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ResponseEntity<ApiError> unreadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, "Request body is missing or malformed.", request, Map.of());
+    }
+
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ApiError> unexpected(Exception ex, HttpServletRequest request) {
+        return response(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected server error occurred.", request, Map.of());
     }
 
     private ResponseEntity<ApiError> response(HttpStatus status, String message,

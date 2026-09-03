@@ -15,16 +15,20 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RepairOrderTest {
 
+    private static final String ID = "ORDER-550E8400-E29B-41D4-A716-446655440000";
+
     private RepairOrder order;
 
     @BeforeEach
     void setUp() {
-        order = new RepairOrder(new RepairOrderId("ORDER-001"), new CustomerContact("+56911112222"));
+        order = new RepairOrder(new RepairOrderId(ID), "Maria Gonzalez",
+                new CustomerContact("+56911112222"), "Bosch", "Therm 5700",
+                "Turns off", Instant.parse("2026-09-03T18:30:00Z"));
     }
 
     @Test
     void startsAsReceivedWithoutDiagnosis() {
-        assertEquals(new RepairOrderId("ORDER-001"), order.id());
+        assertEquals(new RepairOrderId(ID), order.id());
         assertEquals(new CustomerContact("+56911112222"), order.customerContact());
         assertEquals(RepairStatus.RECEIVED, order.status());
         assertNull(order.diagnosis());
@@ -67,7 +71,7 @@ class RepairOrderTest {
         Instant receivedAt = Instant.parse("2026-09-03T18:30:00Z");
 
         RepairOrder completeOrder = new RepairOrder(
-                new RepairOrderId("ORDER-002"), "  Maria Gonzalez  ",
+                new RepairOrderId("ORDER-550E8400-E29B-41D4-A716-446655440002"), "  Maria Gonzalez  ",
                 new CustomerContact("+56911112222"), "  Bosch ", " Therm 5700 ",
                 "  Turns off after a few minutes.  ", receivedAt);
 
@@ -84,7 +88,7 @@ class RepairOrderTest {
         Instant receivedAt = Instant.parse("2026-09-03T18:30:00Z");
         Instant completedAt = Instant.parse("2026-09-03T19:30:00Z");
         RepairOrder completeOrder = new RepairOrder(
-                new RepairOrderId("ORDER-003"), "Maria Gonzalez",
+                new RepairOrderId("ORDER-550E8400-E29B-41D4-A716-446655440003"), "Maria Gonzalez",
                 new CustomerContact("+56911112222"), "Bosch", "Therm 5700",
                 "Turns off", receivedAt);
 
@@ -97,7 +101,7 @@ class RepairOrderTest {
     @Test
     void rejectsBlankRequiredText() {
         assertThrows(IllegalArgumentException.class, () -> new RepairOrder(
-                new RepairOrderId("ORDER-004"), " ", new CustomerContact("+56911112222"),
+                new RepairOrderId("ORDER-550E8400-E29B-41D4-A716-446655440004"), " ", new CustomerContact("+56911112222"),
                 "Bosch", "Therm 5700", "Turns off", Instant.now()));
     }
 }

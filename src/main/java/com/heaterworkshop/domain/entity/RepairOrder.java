@@ -21,15 +21,6 @@ public final class RepairOrder {
     private Diagnosis diagnosis;
     private Instant completedAt;
 
-    /**
-     * Compatibility constructor for the milestone 4 application layer. It will
-     * be removed when the create use case is migrated to the shared contract.
-     */
-    public RepairOrder(RepairOrderId id, CustomerContact customerContact) {
-        this(id, "Pending customer name", customerContact, "Pending brand",
-                "Pending model", "Pending reported issue", Instant.now());
-    }
-
     public RepairOrder(RepairOrderId id, String customerName, CustomerContact customerContact,
                        String heaterBrand, String heaterModel, String reportedIssue,
                        Instant receivedAt) {
@@ -54,18 +45,6 @@ public final class RepairOrder {
         order.diagnosis = diagnosis;
         order.completedAt = completedAt;
         order.validateRestoredState();
-        return order;
-    }
-
-    /**
-     * Compatibility restoration method for records created before the Unit 6
-     * schema is introduced.
-     */
-    public static RepairOrder restore(RepairOrderId id, CustomerContact customerContact,
-                                      RepairStatus status, Diagnosis diagnosis) {
-        RepairOrder order = new RepairOrder(id, customerContact);
-        order.status = status;
-        order.diagnosis = diagnosis;
         return order;
     }
 

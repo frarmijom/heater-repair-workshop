@@ -24,7 +24,7 @@ class JpaRepairOrderRepositoryAdapterTest {
         SpringDataRepairOrderRepository springRepository = mock(SpringDataRepairOrderRepository.class);
         JpaRepairOrderRepositoryAdapter adapter = new JpaRepairOrderRepositoryAdapter(springRepository);
         Instant receivedAt = Instant.parse("2026-09-03T18:30:00Z");
-        RepairOrder order = new RepairOrder(new RepairOrderId("ORDER-001"), "Maria Gonzalez",
+        RepairOrder order = new RepairOrder(new RepairOrderId("ORDER-550E8400-E29B-41D4-A716-446655440001"), "Maria Gonzalez",
                 new CustomerContact("+56911112222"), "Bosch", "Therm 5700",
                 "Turns off", receivedAt);
 
@@ -47,7 +47,7 @@ class JpaRepairOrderRepositoryAdapterTest {
         JpaRepairOrderRepositoryAdapter adapter = new JpaRepairOrderRepositoryAdapter(springRepository);
         Instant receivedAt = Instant.parse("2026-09-03T18:30:00Z");
         Instant completedAt = Instant.parse("2026-09-03T19:30:00Z");
-        JpaRepairOrderEntity entity = new JpaRepairOrderEntity("ORDER-001", "Maria Gonzalez",
+        JpaRepairOrderEntity entity = new JpaRepairOrderEntity("ORDER-550E8400-E29B-41D4-A716-446655440001", "Maria Gonzalez",
                 "+56911112222", "Bosch", "Therm 5700", "Turns off",
                 RepairStatus.COMPLETED, "Damaged ignition sensor", receivedAt, completedAt);
         when(springRepository.findAllByOrderByReceivedAtDesc()).thenReturn(List.of(entity));
