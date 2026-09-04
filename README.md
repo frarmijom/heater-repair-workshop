@@ -155,3 +155,39 @@ The `heater_workshop_data` volume preserves PostgreSQL data when containers are 
 ```bash
 docker compose down --volumes
 ```
+
+## Deploy on an Oracle Cloud VM
+
+Use an Ubuntu VM with Docker Engine and Docker Compose installed. Clone the
+backend and frontend repositories as sibling directories, then prepare the
+production environment from the backend directory:
+
+```bash
+cp .env.production.example .env
+nano .env
+```
+
+Replace `POSTGRES_PASSWORD` with a strong unique value. If the VM serves the
+application on a domain, set `CORS_ALLOWED_ORIGINS` to its `https://` URL. For
+an initial IP-based deployment through the Nginx gateway, the example value is
+sufficient because the backend is not exposed publicly.
+
+Build and start the production stack:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml ps
+```
+
+The production Compose file publishes only the Nginx frontend on port 80.
+Spring Boot and PostgreSQL remain accessible exclusively through the internal
+Docker network. Allow inbound TCP port 80 in both the Oracle Cloud network
+security rules and the VM firewall, then open `http://PUBLIC_IP`.
+
+Apply later application updates with:
+
+```bash
+git -C ../heater-repair-workshop-frontend pull --ff-only
+git pull --ff-only
+docker compose -f docker-compose.prod.yml up -d --build
+```
