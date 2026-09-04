@@ -191,3 +191,22 @@ git -C ../heater-repair-workshop-frontend pull --ff-only
 git pull --ff-only
 docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+## Deploy the API on Render with Neon
+
+The repository includes a `render.yaml` Blueprint for the free Docker web
+service. Create a PostgreSQL project in Neon and obtain its JDBC connection
+details. In Render, create a new Blueprint from this repository and provide the
+secret values requested during the initial setup:
+
+| Variable | Value |
+|---|---|
+| `DB_URL` | Neon JDBC URL, including `sslmode=require` |
+| `DB_USERNAME` | Neon database role |
+| `DB_PASSWORD` | Neon database password |
+| `CORS_ALLOWED_ORIGINS` | Exact Cloudflare Pages URL |
+
+Render provides `PORT` automatically; Spring Boot reads it through
+`server.port=${PORT:8080}`. The Blueprint selects the `prod` profile and uses
+`/api/repair-orders` as its health check. Never commit Neon credentials to this
+repository.
