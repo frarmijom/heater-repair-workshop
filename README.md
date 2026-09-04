@@ -48,12 +48,12 @@ docker compose ps
 docker compose logs -f frontend app postgres
 ```
 
-- Web application: <http://localhost>
+- Web application: <http://localhost:8081>
 - API: <http://localhost:8080>
 
 The frontend sends `/api` requests to Nginx, which proxies them to the backend
 over the internal Docker network. No server IP needs to be compiled into the
-frontend image. Set `FRONTEND_PORT` in `.env` only when port 80 is unavailable.
+frontend image. Change `FRONTEND_PORT` in `.env` when port 8081 is unavailable.
 
 ## OpenAPI and profiles
 

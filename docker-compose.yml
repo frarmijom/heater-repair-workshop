@@ -25,7 +25,7 @@ services:
     image: heater-repair-workshop-frontend:local
     container_name: heater-workshop-frontend
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_PORT:-8081}:80"
     depends_on:
       - app
     restart: unless-stopped
