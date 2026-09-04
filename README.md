@@ -28,16 +28,32 @@ file is ignored by Git and must never be committed. The example selects the
 docker compose up -d --build
 ```
 
-This command builds and starts both the Spring Boot API and PostgreSQL. Java and Maven do not need to be installed on the host because the application is compiled in a Maven container and runs in a separate JRE image.
+The frontend repository must be cloned beside this repository using its default
+directory name:
+
+```text
+parent-directory/
+|-- heater-repair-workshop/
+`-- heater-repair-workshop-frontend/
+```
+
+The command builds and starts the Nginx frontend, Spring Boot backend, and
+PostgreSQL database. Java, Maven, Node.js, npm, and PostgreSQL do not need to be
+installed on the host.
 
 Check the services:
 
 ```bash
 docker compose ps
-docker compose logs -f app
+docker compose logs -f frontend app postgres
 ```
 
-The API is available at <http://localhost:8080>.
+- Web application: <http://localhost>
+- API: <http://localhost:8080>
+
+The frontend sends `/api` requests to Nginx, which proxies them to the backend
+over the internal Docker network. No server IP needs to be compiled into the
+frontend image. Set `FRONTEND_PORT` in `.env` only when port 80 is unavailable.
 
 ## OpenAPI and profiles
 
