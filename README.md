@@ -1,4 +1,4 @@
-# Heater Repair Workshop - Milestone 4
+# Heater Repair Workshop API
 
 A Spring Boot microservice for managing heater repair orders. It preserves the framework-independent domain model introduced in Milestone 3 and adds REST adapters, JPA/PostgreSQL persistence, centralized JSON error responses, and OpenAPI documentation restricted to the `dev` profile.
 
@@ -8,6 +8,19 @@ A Spring Boot microservice for managing heater repair orders. It preserves the f
 - Docker Compose
 
 Java 17 and Maven 3.9+ are only required when running the application without Docker.
+
+## Environment configuration
+
+Create a local environment file before starting Docker:
+
+```bash
+cp .env.example .env
+```
+
+Replace `POSTGRES_PASSWORD` with a strong environment-specific value. The `.env`
+file is ignored by Git and must never be committed. The example selects the
+`dev` profile for local development; deployments that omit
+`SPRING_PROFILES_ACTIVE` use `prod` by default.
 
 ## Run with Docker
 
@@ -28,29 +41,26 @@ The API is available at <http://localhost:8080>.
 
 ## OpenAPI and profiles
 
-The Docker environment uses the `dev` profile by default. Under this profile, Swagger UI and the OpenAPI specification are available at:
+The example environment uses the `dev` profile. Under this profile, Swagger UI and the OpenAPI specification are available at:
 
 - Swagger UI: <http://localhost:8080/swagger-ui.html>
 - OpenAPI JSON: <http://localhost:8080/v3/api-docs>
 
-Swagger is disabled by default and under the `prod` profile. Start the production profile with:
+Swagger is disabled by default and under the `prod` profile. Set this value in
+`.env` for a production-like run:
 
 ```bash
-SPRING_PROFILES_ACTIVE=prod docker compose up -d --build
+SPRING_PROFILES_ACTIVE=prod
 ```
 
-In PowerShell, use:
-
-```powershell
-$env:SPRING_PROFILES_ACTIVE = "prod"
-docker compose up -d --build
-```
+Then run `docker compose up -d --build` again.
 
 ## REST API
 
 | Method | Path | Result |
 |---|---|---|
 | `POST` | `/api/repair-orders` | Creates an order in the `RECEIVED` state (`201`) |
+| `GET` | `/api/repair-orders` | Lists orders newest first (`200`) |
 | `GET` | `/api/repair-orders/{id}` | Retrieves an order (`200`) |
 | `PATCH` | `/api/repair-orders/{id}/start` | Starts a received order with a diagnosis (`200`) |
 | `PATCH` | `/api/repair-orders/{id}/complete` | Completes an order and notifies the customer (`200`) |
@@ -60,17 +70,18 @@ Create an order:
 ```bash
 curl -i -X POST http://localhost:8080/api/repair-orders \
   -H "Content-Type: application/json" \
-  -d '{"id":"ORDER-001","customerContact":"+56911112222"}'
+  -d '{"customerName":"Maria Gonzalez","customerContact":"+56911112222","heaterBrand":"Bosch","heaterModel":"Therm 5700","reportedIssue":"The heater turns off after a few minutes."}'
 ```
 
-Start and complete the order:
+The backend returns the generated `ORDER-<UUID>` identifier. Substitute that
+value for `ORDER_UUID` when starting and completing the order:
 
 ```bash
-curl -i -X PATCH http://localhost:8080/api/repair-orders/ORDER-001/start \
+curl -i -X PATCH http://localhost:8080/api/repair-orders/ORDER_UUID/start \
   -H "Content-Type: application/json" \
   -d '{"diagnosis":"Damaged ignition sensor"}'
 
-curl -i -X PATCH http://localhost:8080/api/repair-orders/ORDER-001/complete
+curl -i -X PATCH http://localhost:8080/api/repair-orders/ORDER_UUID/complete
 ```
 
 Errors use a consistent JSON contract containing `timestamp`, `status`, `error`, `message`, `path`, and `validationErrors`.
@@ -81,7 +92,7 @@ The `bruno/` directory contains an executable collection that verifies the compl
 
 ## Run without Docker
 
-Start only PostgreSQL:
+After creating `.env`, start only PostgreSQL:
 
 ```bash
 docker compose up -d postgres
