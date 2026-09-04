@@ -1,6 +1,7 @@
 package com.heaterworkshop.infrastructure.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -40,7 +41,7 @@ public class CorsConfiguration {
     }
 
     @Bean
-    CorsFilter corsFilter(CorsConfigurationSource source) {
+    CorsFilter corsFilter(@Qualifier("corsConfigurationSource") CorsConfigurationSource source) {
         return new CorsFilter(source);
     }
 }
