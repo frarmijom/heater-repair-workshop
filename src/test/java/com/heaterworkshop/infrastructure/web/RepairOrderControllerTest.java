@@ -95,6 +95,36 @@ class RepairOrderControllerTest {
                 .andExpect(jsonPath("$.path").value("/api/repair-orders/" + id + "/complete"));
     }
 
+    @Test
+    void returnsNotFoundForAnUnknownValidIdentifier() throws Exception {
+        String id = "ORDER-550E8400-E29B-41D4-A716-446655440404";
+
+        mockMvc.perform(get("/api/repair-orders/{id}", id))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.path").value("/api/repair-orders/" + id));
+    }
+
+    @Test
+    void returnsFieldErrorsForAnInvalidCreateRequest() throws Exception {
+        mockMvc.perform(post("/api/repair-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Request validation failed."))
+                .andExpect(jsonPath("$.validationErrors.customerName").exists())
+                .andExpect(jsonPath("$.validationErrors.customerContact").exists());
+    }
+
+    @Test
+    void returnsBadRequestForMalformedJson() throws Exception {
+        mockMvc.perform(post("/api/repair-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{not-json}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Request body is missing or malformed."));
+    }
+
     private String extractId(String json) {
         Matcher matcher = Pattern.compile("\\\"id\\\":\\\"([^\\\"]+)\\\"").matcher(json);
         if (!matcher.find()) {

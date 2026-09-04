@@ -1,6 +1,7 @@
 package com.heaterworkshop.application.usecase;
 
 import com.heaterworkshop.domain.entity.RepairOrder;
+import com.heaterworkshop.domain.exception.RepairOrderNotFoundException;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
 import com.heaterworkshop.domain.valueobject.RepairOrderId;
 import com.heaterworkshop.infrastructure.persistence.InMemoryRepairOrderRepository;
@@ -13,6 +14,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CreateAndGetRepairOrderUseCaseTest {
     @Test
@@ -30,5 +32,13 @@ class CreateAndGetRepairOrderUseCaseTest {
         assertEquals("ORDER-550E8400-E29B-41D4-A716-446655440000", created.id().value());
         assertEquals(receivedAt, created.receivedAt());
         assertSame(created, get.execute(created.id()));
+    }
+
+    @Test
+    void rejectsAnUnknownOrder() {
+        GetRepairOrderUseCase get = new GetRepairOrderUseCase(new InMemoryRepairOrderRepository());
+
+        assertThrows(RepairOrderNotFoundException.class, () -> get.execute(
+                new RepairOrderId("ORDER-550E8400-E29B-41D4-A716-446655440404")));
     }
 }

@@ -104,4 +104,30 @@ class RepairOrderTest {
                 new RepairOrderId("ORDER-550E8400-E29B-41D4-A716-446655440004"), " ", new CustomerContact("+56911112222"),
                 "Bosch", "Therm 5700", "Turns off", Instant.now()));
     }
+
+    @Test
+    void rejectsACompletionTimestampBeforeReception() {
+        order.start(new Diagnosis("Damaged sensor"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> order.complete(Instant.parse("2026-09-03T18:29:59Z")));
+    }
+
+    @Test
+    void rejectsRestoredStatesWithInconsistentWorkflowData() {
+        Instant receivedAt = Instant.parse("2026-09-03T18:30:00Z");
+
+        assertThrows(IllegalArgumentException.class, () -> RepairOrder.restore(
+                new RepairOrderId(ID), "Maria Gonzalez", new CustomerContact("+56911112222"),
+                "Bosch", "Therm 5700", "Turns off", RepairStatus.RECEIVED,
+                new Diagnosis("Unexpected diagnosis"), receivedAt, null));
+        assertThrows(IllegalArgumentException.class, () -> RepairOrder.restore(
+                new RepairOrderId(ID), "Maria Gonzalez", new CustomerContact("+56911112222"),
+                "Bosch", "Therm 5700", "Turns off", RepairStatus.IN_PROGRESS,
+                null, receivedAt, null));
+        assertThrows(IllegalArgumentException.class, () -> RepairOrder.restore(
+                new RepairOrderId(ID), "Maria Gonzalez", new CustomerContact("+56911112222"),
+                "Bosch", "Therm 5700", "Turns off", RepairStatus.COMPLETED,
+                new Diagnosis("Damaged sensor"), receivedAt, null));
+    }
 }

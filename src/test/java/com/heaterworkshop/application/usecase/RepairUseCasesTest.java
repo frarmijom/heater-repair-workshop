@@ -7,12 +7,14 @@ import com.heaterworkshop.domain.repository.RepairOrderRepository;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
 import com.heaterworkshop.domain.valueobject.Diagnosis;
 import com.heaterworkshop.domain.valueobject.RepairOrderId;
+import com.heaterworkshop.domain.exception.RepairOrderNotFoundException;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,6 +53,25 @@ class RepairUseCasesTest {
                 new CustomerContact("+56911112222"),
                 "Repair order ORDER-550E8400-E29B-41D4-A716-446655440001 has been completed."
         );
+    }
+
+    @Test
+    void cannotStartAnUnknownOrder() {
+        RepairOrderRepository repository = mock(RepairOrderRepository.class);
+        StartRepairUseCase useCase = new StartRepairUseCase(repository);
+        RepairOrderId id = new RepairOrderId("ORDER-550E8400-E29B-41D4-A716-446655440404");
+
+        assertThrows(RepairOrderNotFoundException.class,
+                () -> useCase.execute(id, new Diagnosis("Damaged sensor")));
+    }
+
+    @Test
+    void cannotCompleteAnUnknownOrder() {
+        RepairOrderRepository repository = mock(RepairOrderRepository.class);
+        CompleteRepairUseCase useCase = new CompleteRepairUseCase(repository, mock(CustomerNotifier.class));
+        RepairOrderId id = new RepairOrderId("ORDER-550E8400-E29B-41D4-A716-446655440404");
+
+        assertThrows(RepairOrderNotFoundException.class, () -> useCase.execute(id));
     }
 
     private RepairOrder newOrder() {
