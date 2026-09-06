@@ -125,6 +125,15 @@ class RepairOrderControllerTest {
                 .andExpect(jsonPath("$.message").value("Request body is missing or malformed."));
     }
 
+    @Test
+    void returnsNotFoundForAnUnknownRoute() throws Exception {
+        mockMvc.perform(get("/route-that-does-not-exist"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.message").value("The requested resource was not found."))
+                .andExpect(jsonPath("$.path").value("/route-that-does-not-exist"));
+    }
+
     private String extractId(String json) {
         Matcher matcher = Pattern.compile("\\\"id\\\":\\\"([^\\\"]+)\\\"").matcher(json);
         if (!matcher.find()) {
