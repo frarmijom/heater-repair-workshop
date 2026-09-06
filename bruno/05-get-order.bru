@@ -1,0 +1,18 @@
+meta {
+  name: Get repair order
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/repair-orders/{{orderId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("returns the created order", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().id).to.equal(bru.getVar("orderId"));
+  });
+}

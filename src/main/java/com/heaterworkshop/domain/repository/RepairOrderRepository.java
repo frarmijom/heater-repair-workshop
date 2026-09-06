@@ -4,9 +4,12 @@ import com.heaterworkshop.domain.entity.RepairOrder;
 import com.heaterworkshop.domain.valueobject.RepairOrderId;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface RepairOrderRepository {
     void save(RepairOrder order);
 
     Optional<RepairOrder> findById(RepairOrderId id);
+
+    List<RepairOrder> findAllByReceivedAtDescending();
 }

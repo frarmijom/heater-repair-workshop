@@ -11,26 +11,37 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/repair-orders")
 @Tag(name = "Repair orders", description = "Heater repair lifecycle")
 public class RepairOrderController {
     private final CreateRepairOrderUseCase create;
+    private final ListRepairOrdersUseCase list;
     private final GetRepairOrderUseCase get;
     private final StartRepairUseCase start;
     private final CompleteRepairUseCase complete;
 
-    public RepairOrderController(CreateRepairOrderUseCase create, GetRepairOrderUseCase get,
+    public RepairOrderController(CreateRepairOrderUseCase create, ListRepairOrdersUseCase list,
+                                 GetRepairOrderUseCase get,
                                  StartRepairUseCase start, CompleteRepairUseCase complete) {
-        this.create = create; this.get = get; this.start = start; this.complete = complete;
+        this.create = create; this.list = list; this.get = get; this.start = start; this.complete = complete;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a received repair order")
     public RepairOrderResponse create(@Valid @RequestBody CreateRepairOrderRequest request) {
-        return RepairOrderResponse.from(create.execute(new RepairOrderId(request.id()),
-                new CustomerContact(request.customerContact())));
+        return RepairOrderResponse.from(create.execute(request.customerName(),
+                new CustomerContact(request.customerContact()), request.heaterBrand(),
+                request.heaterModel(), request.reportedIssue()));
+    }
+
+    @GetMapping
+    @Operation(summary = "List repair orders newest first")
+    public List<RepairOrderResponse> list() {
+        return list.execute().stream().map(RepairOrderResponse::from).toList();
     }
 
     @GetMapping("/{id}")
@@ -42,16 +53,13 @@ public class RepairOrderController {
     @PatchMapping("/{id}/start")
     @Operation(summary = "Start a received repair order")
     public RepairOrderResponse start(@PathVariable String id, @Valid @RequestBody StartRepairRequest request) {
-        RepairOrder order = get.execute(new RepairOrderId(id));
-        start.execute(order, new Diagnosis(request.diagnosis()));
-        return RepairOrderResponse.from(order);
+        return RepairOrderResponse.from(start.execute(new RepairOrderId(id),
+                new Diagnosis(request.diagnosis())));
     }
 
     @PatchMapping("/{id}/complete")
     @Operation(summary = "Complete a repair in progress")
     public RepairOrderResponse complete(@PathVariable String id) {
-        RepairOrder order = get.execute(new RepairOrderId(id));
-        complete.execute(order);
-        return RepairOrderResponse.from(order);
+        return RepairOrderResponse.from(complete.execute(new RepairOrderId(id)));
     }
 }

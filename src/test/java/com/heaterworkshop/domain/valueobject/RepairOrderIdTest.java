@@ -9,7 +9,8 @@ class RepairOrderIdTest {
 
     @Test
     void acceptsTheBusinessFormat() {
-        assertEquals("ORDER-001", new RepairOrderId("ORDER-001").value());
+        String id = "ORDER-550E8400-E29B-41D4-A716-446655440000";
+        assertEquals(id, new RepairOrderId(id).value());
     }
 
     @Test
@@ -19,6 +20,6 @@ class RepairOrderIdTest {
 
     @Test
     void rejectsAnInvalidFormat() {
-        assertThrows(IllegalArgumentException.class, () -> new RepairOrderId("001"));
+        assertThrows(IllegalArgumentException.class, () -> new RepairOrderId("ORDER-001"));
     }
 }

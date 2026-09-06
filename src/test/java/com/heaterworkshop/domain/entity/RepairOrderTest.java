@@ -7,22 +7,28 @@ import com.heaterworkshop.domain.valueobject.RepairOrderId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RepairOrderTest {
 
+    private static final String ID = "ORDER-550E8400-E29B-41D4-A716-446655440000";
+
     private RepairOrder order;
 
     @BeforeEach
     void setUp() {
-        order = new RepairOrder(new RepairOrderId("ORDER-001"), new CustomerContact("+56911112222"));
+        order = new RepairOrder(new RepairOrderId(ID), "Maria Gonzalez",
+                new CustomerContact("+56911112222"), "Bosch", "Therm 5700",
+                "Turns off", Instant.parse("2026-09-03T18:30:00Z"));
     }
 
     @Test
     void startsAsReceivedWithoutDiagnosis() {
-        assertEquals(new RepairOrderId("ORDER-001"), order.id());
+        assertEquals(new RepairOrderId(ID), order.id());
         assertEquals(new CustomerContact("+56911112222"), order.customerContact());
         assertEquals(RepairStatus.RECEIVED, order.status());
         assertNull(order.diagnosis());
@@ -58,5 +64,70 @@ class RepairOrderTest {
                 order::complete
         );
         assertEquals("Only repairs in progress can be completed.", exception.getMessage());
+    }
+
+    @Test
+    void createsACompleteReceivedOrderAndTrimsTextFields() {
+        Instant receivedAt = Instant.parse("2026-09-03T18:30:00Z");
+
+        RepairOrder completeOrder = new RepairOrder(
+                new RepairOrderId("ORDER-550E8400-E29B-41D4-A716-446655440002"), "  Maria Gonzalez  ",
+                new CustomerContact("+56911112222"), "  Bosch ", " Therm 5700 ",
+                "  Turns off after a few minutes.  ", receivedAt);
+
+        assertEquals("Maria Gonzalez", completeOrder.customerName());
+        assertEquals("Bosch", completeOrder.heaterBrand());
+        assertEquals("Therm 5700", completeOrder.heaterModel());
+        assertEquals("Turns off after a few minutes.", completeOrder.reportedIssue());
+        assertEquals(receivedAt, completeOrder.receivedAt());
+        assertNull(completeOrder.completedAt());
+    }
+
+    @Test
+    void completionStoresTheProvidedTimestamp() {
+        Instant receivedAt = Instant.parse("2026-09-03T18:30:00Z");
+        Instant completedAt = Instant.parse("2026-09-03T19:30:00Z");
+        RepairOrder completeOrder = new RepairOrder(
+                new RepairOrderId("ORDER-550E8400-E29B-41D4-A716-446655440003"), "Maria Gonzalez",
+                new CustomerContact("+56911112222"), "Bosch", "Therm 5700",
+                "Turns off", receivedAt);
+
+        completeOrder.start(new Diagnosis("Damaged ignition sensor"));
+        completeOrder.complete(completedAt);
+
+        assertEquals(completedAt, completeOrder.completedAt());
+    }
+
+    @Test
+    void rejectsBlankRequiredText() {
+        assertThrows(IllegalArgumentException.class, () -> new RepairOrder(
+                new RepairOrderId("ORDER-550E8400-E29B-41D4-A716-446655440004"), " ", new CustomerContact("+56911112222"),
+                "Bosch", "Therm 5700", "Turns off", Instant.now()));
+    }
+
+    @Test
+    void rejectsACompletionTimestampBeforeReception() {
+        order.start(new Diagnosis("Damaged sensor"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> order.complete(Instant.parse("2026-09-03T18:29:59Z")));
+    }
+
+    @Test
+    void rejectsRestoredStatesWithInconsistentWorkflowData() {
+        Instant receivedAt = Instant.parse("2026-09-03T18:30:00Z");
+
+        assertThrows(IllegalArgumentException.class, () -> RepairOrder.restore(
+                new RepairOrderId(ID), "Maria Gonzalez", new CustomerContact("+56911112222"),
+                "Bosch", "Therm 5700", "Turns off", RepairStatus.RECEIVED,
+                new Diagnosis("Unexpected diagnosis"), receivedAt, null));
+        assertThrows(IllegalArgumentException.class, () -> RepairOrder.restore(
+                new RepairOrderId(ID), "Maria Gonzalez", new CustomerContact("+56911112222"),
+                "Bosch", "Therm 5700", "Turns off", RepairStatus.IN_PROGRESS,
+                null, receivedAt, null));
+        assertThrows(IllegalArgumentException.class, () -> RepairOrder.restore(
+                new RepairOrderId(ID), "Maria Gonzalez", new CustomerContact("+56911112222"),
+                "Bosch", "Therm 5700", "Turns off", RepairStatus.COMPLETED,
+                new Diagnosis("Damaged sensor"), receivedAt, null));
     }
 }

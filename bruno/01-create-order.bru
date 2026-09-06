@@ -15,11 +15,22 @@ headers {
 }
 
 body:json {
-  {"id":"ORDER-001","customerContact":"+56911112222"}
+  {
+    "customerName": "Maria Gonzalez",
+    "customerContact": "+56911112222",
+    "heaterBrand": "Bosch",
+    "heaterModel": "Therm 5700",
+    "reportedIssue": "The heater turns off after a few minutes."
+  }
+}
+
+script:post-response {
+  bru.setVar("orderId", res.getBody().id);
 }
 
 tests {
   test("returns 201", function () {
     expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().status).to.equal("RECEIVED");
   });
 }
