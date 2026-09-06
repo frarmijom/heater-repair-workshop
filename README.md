@@ -201,12 +201,31 @@ secret values requested during the initial setup:
 
 | Variable | Value |
 |---|---|
-| `DB_URL` | Neon JDBC URL, including `sslmode=require` |
+| `DB_URL` | Neon JDBC URL, for example `jdbc:postgresql://HOST/DATABASE?sslmode=require` |
 | `DB_USERNAME` | Neon database role |
 | `DB_PASSWORD` | Neon database password |
-| `CORS_ALLOWED_ORIGINS` | Exact Cloudflare Pages URL |
+| `CORS_ALLOWED_ORIGINS` | Exact Cloudflare Workers URL |
 
 Render provides `PORT` automatically; Spring Boot reads it through
 `server.port=${PORT:8080}`. The Blueprint selects the `prod` profile and uses
 `/api/repair-orders` as its health check. Never commit Neon credentials to this
 repository.
+
+The production service is deployed from `main` at:
+
+- API: <https://heater-repair-workshop-api.onrender.com>
+
+Neon may display a connection string beginning with `postgresql://`. For Spring
+Boot, set `DB_URL` to the equivalent JDBC form beginning with
+`jdbc:postgresql://`. Store all four variables in Render, not in a committed
+`.env` file, and deploy the latest commit from `main`.
+
+Validate the production API after deployment:
+
+```bash
+curl -i https://heater-repair-workshop-api.onrender.com/api/repair-orders
+curl -i https://heater-repair-workshop-api.onrender.com/route-that-does-not-exist
+```
+
+The first request must return `200` with JSON. The second must return `404` with
+the standard JSON error contract.
