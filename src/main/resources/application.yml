@@ -1,4 +1,11 @@
 spring:
+  web:
+    error:
+      include-message: never
+      include-stacktrace: never
+      include-binding-errors: never
+      whitelabel:
+        enabled: false
   application:
     name: heater-repair-workshop
   datasource:
@@ -19,6 +26,13 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
 server:
   port: ${PORT:8080}
-  error:
-    include-message: never
-    include-stacktrace: never
+  servlet:
+    session:
+      timeout: 30m
+      tracking-modes: cookie
+      cookie:
+        name: WORKSHOP_SESSION
+        path: /
+        http-only: true
+        secure: true
+        same-site: lax

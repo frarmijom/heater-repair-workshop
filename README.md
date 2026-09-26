@@ -62,6 +62,9 @@ The example environment uses the `dev` profile. Under this profile, Swagger UI a
 - Swagger UI: <http://localhost:8080/swagger-ui.html>
 - OpenAPI JSON: <http://localhost:8080/v3/api-docs>
 
+Documentation endpoints also require an authenticated session. Sign in on the same
+host before opening them directly on the backend in development.
+
 Swagger is disabled by default and under the `prod` profile. Set this value in
 `.env` for a production-like run:
 
@@ -70,6 +73,15 @@ SPRING_PROFILES_ACTIVE=prod
 ```
 
 Then run `docker compose up -d --build` again.
+
+## Authentication (AUTH-01)
+
+All repair-order operations require a server session. See [AUTH-01 operations and QA](docs/AUTH-01.md)
+for initial user provisioning, CSRF, cookies, configuration and the manual QA checklist.
+There is no public registration, default user or default password.
+
+`GET /api/health` is the sole non-authentication public endpoint: it returns `200`
+with an empty body for infrastructure liveness monitoring.
 
 ## REST API
 
@@ -80,6 +92,8 @@ Then run `docker compose up -d --build` again.
 | `GET` | `/api/repair-orders/{id}` | Retrieves an order (`200`) |
 | `PATCH` | `/api/repair-orders/{id}/start` | Starts a received order with a diagnosis (`200`) |
 | `PATCH` | `/api/repair-orders/{id}/complete` | Completes an order and notifies the customer (`200`) |
+
+The following examples require an authenticated cookie jar and CSRF token as described in [AUTH-01](docs/AUTH-01.md). Add `-b cookies.txt -H "X-CSRF-TOKEN: $CSRF_TOKEN"` to mutation requests.
 
 Create an order:
 
@@ -104,7 +118,7 @@ Errors use a consistent JSON contract containing `timestamp`, `status`, `error`,
 
 ## Contract testing
 
-The `bruno/` directory contains an executable collection that verifies the complete create → start → complete workflow. Select its `local` environment while the Docker services are running.
+The `bruno/` directory contains the create → start → complete workflow. Authenticate first, enable the cookie jar, and provide the current CSRF header on mutations; see [AUTH-01](docs/AUTH-01.md). Anonymous collection execution now correctly returns `401`.
 
 ## Run without Docker
 
@@ -182,7 +196,7 @@ docker compose -f docker-compose.prod.yml ps
 The production Compose file publishes only the Nginx frontend on port 80.
 Spring Boot and PostgreSQL remain accessible exclusively through the internal
 Docker network. Allow inbound TCP port 80 in both the Oracle Cloud network
-security rules and the VM firewall, then open `http://PUBLIC_IP`.
+security rules and the VM firewall, then configure an HTTPS terminator before using AUTH-01 in production. Plain HTTP does not support the required production Secure session cookie.
 
 Apply later application updates with:
 
@@ -208,7 +222,7 @@ secret values requested during the initial setup:
 
 Render provides `PORT` automatically; Spring Boot reads it through
 `server.port=${PORT:8080}`. The Blueprint selects the `prod` profile and uses
-`/api/repair-orders` as its health check. Never commit Neon credentials to this
+`/api/health` as its health check. Never commit Neon credentials to this
 repository.
 
 The production service is deployed from `main` at:
@@ -227,5 +241,5 @@ curl -i https://heater-repair-workshop-api.onrender.com/api/repair-orders
 curl -i https://heater-repair-workshop-api.onrender.com/route-that-does-not-exist
 ```
 
-The first request must return `200` with JSON. The second must return `404` with
-the standard JSON error contract.
+Both unauthenticated requests must return `401`. `GET /api/health` must return
+`200` with an empty body. Authenticated repair-order requests retain their existing responses.
