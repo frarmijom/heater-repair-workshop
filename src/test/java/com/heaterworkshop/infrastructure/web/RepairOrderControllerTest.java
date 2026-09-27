@@ -8,6 +8,8 @@ import com.heaterworkshop.application.usecase.StartRepairUseCase;
 import com.heaterworkshop.infrastructure.persistence.InMemoryRepairOrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -39,16 +41,18 @@ class RepairOrderControllerTest {
                 .build();
     }
 
-    @Test
-    void supportsTheCompleteRepairOrderLifecycle() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"REPAIR", "MAINTENANCE"})
+    void supportsTheCompleteRepairOrderLifecycle(String type) throws Exception {
         MvcResult creation = mockMvc.perform(post("/api/repair-orders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"customerName":"Maria Gonzalez","customerContact":"+56911112222",
                                  "heaterBrand":"Bosch","heaterModel":"Therm 5700",
-                                 "reportedIssue":"Turns off after a few minutes"}
-                                """))
+                                 "serviceType":"%s","reportedIssue":"Turns off after a few minutes"}
+                                """.formatted(type)))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.serviceType").value(type))
                 .andExpect(jsonPath("$.id").isString())
                 .andExpect(jsonPath("$.status").value("RECEIVED"))
                 .andExpect(jsonPath("$.diagnosis").doesNotExist())
@@ -59,18 +63,25 @@ class RepairOrderControllerTest {
 
         mockMvc.perform(get("/api/repair-orders"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(id));
+                .andExpect(jsonPath("$[0].id").value(id))
+                .andExpect(jsonPath("$[0].serviceType").value(type));
         mockMvc.perform(get("/api/repair-orders/{id}", id))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.customerName").value("Maria Gonzalez"));
+                .andExpect(jsonPath("$.customerName").value("Maria Gonzalez"))
+                .andExpect(jsonPath("$.serviceType").value(type));
+        mockMvc.perform(patch("/api/repair-orders/{id}/start", id)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"diagnosis\":\"   \"}"))
+                .andExpect(status().isBadRequest());
         mockMvc.perform(patch("/api/repair-orders/{id}/start", id)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"diagnosis\":\"Damaged ignition sensor\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.serviceType").value(type));
         mockMvc.perform(patch("/api/repair-orders/{id}/complete", id))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.serviceType").value(type))
                 .andExpect(jsonPath("$.completedAt").isNotEmpty());
     }
 
@@ -85,7 +96,7 @@ class RepairOrderControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"customerName":"Maria Gonzalez","customerContact":"+56911112222",
-                                 "heaterBrand":"Bosch","heaterModel":"Therm 5700","reportedIssue":"Turns off"}
+                                 "heaterBrand":"Bosch","heaterModel":"Therm 5700","serviceType":"REPAIR","reportedIssue":"Turns off"}
                                 """))
                 .andReturn();
         String id = extractId(creation.getResponse().getContentAsString());
@@ -140,5 +151,61 @@ class RepairOrderControllerTest {
             throw new AssertionError("Response did not contain an ID: " + json);
         }
         return matcher.group(1);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "", ",\"reportedIssue\":null", ",\"reportedIssue\":\"\"", ",\"reportedIssue\":\"   \""})
+    void rejectsRepairWithoutIssue(String issueField) throws Exception {
+        mockMvc.perform(post("/api/repair-orders").contentType(MediaType.APPLICATION_JSON)
+                        .content(payload("\"REPAIR\"", issueField)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Reported issue must not be blank."));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "", ",\"reportedIssue\":null", ",\"reportedIssue\":\"\"", ",\"reportedIssue\":\"   \""})
+    void acceptsMaintenanceWithoutObservations(String issueField) throws Exception {
+        mockMvc.perform(post("/api/repair-orders").contentType(MediaType.APPLICATION_JSON)
+                        .content(payload("\"MAINTENANCE\"", issueField)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.serviceType").value("MAINTENANCE"))
+                .andExpect(jsonPath("$.reportedIssue").value(""));
+    }
+
+    @Test
+    void trimsMaintenanceObservations() throws Exception {
+        mockMvc.perform(post("/api/repair-orders").contentType(MediaType.APPLICATION_JSON)
+                        .content(payload("\"MAINTENANCE\"", ",\"reportedIssue\":\"  Mantención preventiva  \"")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.reportedIssue").value("Mantención preventiva"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "\"OTHER\"", "\"\""})
+    void rejectsInvalidServiceTypeSafely(String type) throws Exception {
+        mockMvc.perform(post("/api/repair-orders").contentType(MediaType.APPLICATION_JSON)
+                        .content(payload(type, ",\"reportedIssue\":\"Issue\"")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(type.equals("null")
+                        ? "Request validation failed." : "Request body is missing or malformed."))
+                .andExpect(jsonPath("$.stackTrace").doesNotExist());
+    }
+
+    @Test
+    void rejectsLegacyRequestWithoutServiceType() throws Exception {
+        mockMvc.perform(post("/api/repair-orders").contentType(MediaType.APPLICATION_JSON)
+                        .content(payload("null", ",\"reportedIssue\":\"Issue\"")
+                                .replace(",\"serviceType\":null", "")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.validationErrors.serviceType").exists());
+    }
+
+    private String payload(String type, String issueField) {
+        return """
+                {"customerName":"Juan Pérez","customerContact":"+56912345678",
+                 "heaterBrand":"Junkers","heaterModel":"WR11","serviceType":%s%s}
+                """.formatted(type, issueField);
     }
 }

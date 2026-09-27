@@ -1,6 +1,7 @@
 package com.heaterworkshop.infrastructure.persistence;
 
 import com.heaterworkshop.domain.entity.RepairOrder;
+import com.heaterworkshop.domain.entity.ServiceType;
 import com.heaterworkshop.domain.repository.RepairOrderRepository;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
 import com.heaterworkshop.domain.valueobject.Diagnosis;
@@ -9,8 +10,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Optional;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @Primary
@@ -39,7 +40,7 @@ public class JpaRepairOrderRepositoryAdapter implements RepairOrderRepository {
     private JpaRepairOrderEntity toEntity(RepairOrder order) {
         return new JpaRepairOrderEntity(order.id().value(), order.customerName(),
                 order.customerContact().value(), order.heaterBrand(), order.heaterModel(),
-                order.reportedIssue(), order.status(),
+                order.serviceType(), order.reportedIssue(), order.status(),
                 order.diagnosis() == null ? null : order.diagnosis().value(),
                 order.receivedAt(), order.completedAt());
     }
@@ -47,7 +48,10 @@ public class JpaRepairOrderRepositoryAdapter implements RepairOrderRepository {
     private RepairOrder toDomain(JpaRepairOrderEntity entity) {
         return RepairOrder.restore(new RepairOrderId(entity.getId()), entity.getCustomerName(),
                 new CustomerContact(entity.getCustomerContact()), entity.getHeaterBrand(),
-                entity.getHeaterModel(), entity.getReportedIssue(), entity.getStatus(),
+                entity.getHeaterModel(),
+                // Only persisted historical rows may omit the service type.
+                entity.getServiceType() == null ? ServiceType.REPAIR : entity.getServiceType(),
+                entity.getReportedIssue(), entity.getStatus(),
                 entity.getDiagnosis() == null ? null : new Diagnosis(entity.getDiagnosis()),
                 entity.getReceivedAt(), entity.getCompletedAt());
     }

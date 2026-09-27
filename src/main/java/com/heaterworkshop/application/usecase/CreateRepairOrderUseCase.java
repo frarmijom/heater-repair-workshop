@@ -1,6 +1,7 @@
 package com.heaterworkshop.application.usecase;
 
 import com.heaterworkshop.domain.entity.RepairOrder;
+import com.heaterworkshop.domain.entity.ServiceType;
 import com.heaterworkshop.domain.repository.RepairOrderRepository;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
 import com.heaterworkshop.domain.valueobject.RepairOrderId;
@@ -27,10 +28,10 @@ public final class CreateRepairOrderUseCase {
     }
 
     public RepairOrder execute(String customerName, CustomerContact contact, String heaterBrand,
-                               String heaterModel, String reportedIssue) {
+                               String heaterModel, ServiceType serviceType, String reportedIssue) {
         String id = "ORDER-" + uuidSupplier.get().toString().toUpperCase(Locale.ROOT);
         RepairOrder order = new RepairOrder(new RepairOrderId(id), customerName, contact,
-                heaterBrand, heaterModel, reportedIssue, Instant.now(clock));
+                heaterBrand, heaterModel, serviceType, reportedIssue, Instant.now(clock));
         repository.save(order);
         return order;
     }

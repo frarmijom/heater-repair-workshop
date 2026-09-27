@@ -1,6 +1,7 @@
 package com.heaterworkshop.infrastructure.persistence;
 
 import com.heaterworkshop.domain.entity.RepairStatus;
+import com.heaterworkshop.domain.entity.ServiceType;
 import jakarta.persistence.*;
 
 import java.time.Instant;
@@ -19,7 +20,10 @@ public class JpaRepairOrderEntity {
     private String heaterBrand;
     @Column(name = "heater_model", nullable = false, length = 120)
     private String heaterModel;
-    @Column(name = "reported_issue", nullable = false, length = 2000)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "service_type", length = 32)
+    private ServiceType serviceType;
+    @Column(name = "reported_issue", length = 2000)
     private String reportedIssue;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
@@ -34,7 +38,7 @@ public class JpaRepairOrderEntity {
     protected JpaRepairOrderEntity() { }
 
     public JpaRepairOrderEntity(String id, String customerName, String customerContact,
-                                String heaterBrand, String heaterModel, String reportedIssue,
+                                String heaterBrand, String heaterModel, ServiceType serviceType, String reportedIssue,
                                 RepairStatus status, String diagnosis, Instant receivedAt,
                                 Instant completedAt) {
         this.id = id;
@@ -42,6 +46,7 @@ public class JpaRepairOrderEntity {
         this.customerContact = customerContact;
         this.heaterBrand = heaterBrand;
         this.heaterModel = heaterModel;
+        this.serviceType = serviceType;
         this.reportedIssue = reportedIssue;
         this.status = status;
         this.diagnosis = diagnosis;
@@ -54,6 +59,7 @@ public class JpaRepairOrderEntity {
     public String getCustomerContact() { return customerContact; }
     public String getHeaterBrand() { return heaterBrand; }
     public String getHeaterModel() { return heaterModel; }
+    public ServiceType getServiceType() { return serviceType; }
     public String getReportedIssue() { return reportedIssue; }
     public RepairStatus getStatus() { return status; }
     public String getDiagnosis() { return diagnosis; }

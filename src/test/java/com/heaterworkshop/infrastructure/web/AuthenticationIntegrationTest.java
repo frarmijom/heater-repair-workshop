@@ -1,6 +1,11 @@
 package com.heaterworkshop.infrastructure.web;
 
 import com.heaterworkshop.infrastructure.persistence.*;
+import java.net.*;
+import java.net.http.*;
+import java.time.Instant;
+import java.util.*;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.*;
@@ -8,11 +13,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import java.net.*;
-import java.net.http.*;
-import java.time.Instant;
-import java.util.*;
-import java.util.regex.Pattern;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
@@ -124,7 +124,7 @@ class AuthenticationIntegrationTest {
         String token = csrf();
         var created = call("POST", "/api/repair-orders", """
                 {"customerName":"Test Customer","customerContact":"+56911112222","heaterBrand":"Bosch",
-                 "heaterModel":"Therm 5700","reportedIssue":"Turns off"}
+                 "heaterModel":"Therm 5700","serviceType":"REPAIR","reportedIssue":"Turns off"}
                 """, token);
         assertEquals(201, created.statusCode());
         String id = field(created.body(), "id");

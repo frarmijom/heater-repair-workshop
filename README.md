@@ -100,7 +100,7 @@ Create an order:
 ```bash
 curl -i -X POST http://localhost:8080/api/repair-orders \
   -H "Content-Type: application/json" \
-  -d '{"customerName":"Maria Gonzalez","customerContact":"+56911112222","heaterBrand":"Bosch","heaterModel":"Therm 5700","reportedIssue":"The heater turns off after a few minutes."}'
+  -d '{"customerName":"Maria Gonzalez","customerContact":"+56911112222","heaterBrand":"Bosch","heaterModel":"Therm 5700","serviceType": "REPAIR", "reportedIssue":"The heater turns off after a few minutes."}'
 ```
 
 The backend returns the generated `ORDER-<UUID>` identifier. Substitute that
@@ -243,3 +243,70 @@ curl -i https://heater-repair-workshop-api.onrender.com/route-that-does-not-exis
 
 Both unauthenticated requests must return `401`. `GET /api/health` must return
 `200` with an empty body. Authenticated repair-order requests retain their existing responses.
+
+## Service types (I6)
+
+New create requests require `serviceType`: `REPAIR` or `MAINTENANCE`.
+`REPAIR` requires a nonblank `reportedIssue`. For `MAINTENANCE`, the field may
+be omitted, null, empty, whitespace, or observations. Absence is normalized to
+`""`; supplied text is trimmed. Every order response includes `serviceType` and
+always represents `reportedIssue` as a string. Both types use the existing
+RECEIVED → IN_PROGRESS → COMPLETED lifecycle and require diagnosis to start.
+
+Repair request:
+
+```json
+{
+  "customerName": "Juan Pérez",
+  "customerContact": "+56912345678",
+  "heaterBrand": "Junkers",
+  "heaterModel": "WR11",
+  "serviceType": "REPAIR",
+  "reportedIssue": "No enciende"
+}
+```
+
+Maintenance request:
+
+```json
+{
+  "customerName": "Juan Pérez",
+  "customerContact": "+56912345678",
+  "heaterBrand": "Junkers",
+  "heaterModel": "WR11",
+  "serviceType": "MAINTENANCE",
+  "reportedIssue": ""
+}
+```
+
+Missing/null service types, unknown enum names, and repairs without an issue
+return HTTP 400. Existing authentication and CSRF requirements still apply.
+
+### Existing database compatibility
+
+`service_type` uses `@Enumerated(EnumType.STRING)` and a nullable column of
+length 32. New domain orders always require and persist an explicit type.
+Only the persistence adapter interprets a historical SQL NULL as `REPAIR`;
+reading does not backfill or modify historical rows. Saving such an order
+through the existing lifecycle writes its explicit `REPAIR` type.
+
+`reported_issue` now has a nullable JPA mapping (length 2000). The domain and
+adapter save absent maintenance observations as the empty string, not SQL NULL.
+A persisted MAINTENANCE with SQL NULL observations also restores as `""`.
+Historical repairs still require a valid issue; fallback does not bypass domain
+restoration invariants.
+
+The installed Hibernate 7.4.5.Final `StandardTableMigrator` adds missing columns
+but does not alter nullability of existing columns. With `ddl-auto: update`,
+PostgreSQL therefore gets a nullable `service_type varchar(32)` column, leaving
+historical rows NULL. An old `reported_issue NOT NULL` constraint can remain;
+empty-string normalization makes new maintenance records compatible with it.
+Fresh schemas allow SQL NULL according to the mapping. No manual data update,
+column default, table recreation, or migration framework is needed for I6.
+
+`JpaRepairOrderPostgresDdlTest` checks generated PostgreSQL DDL offline using
+the actual entity mapping. `JpaRepairOrderSchemaUpdateTest` executes Hibernate
+update against a populated legacy H2 schema in PostgreSQL mode and verifies
+both service types across all statuses after flushing and clearing JPA state.
+These tests do not connect to production or claim validation against a live
+PostgreSQL server. Normal schema-update permissions are still required at startup.

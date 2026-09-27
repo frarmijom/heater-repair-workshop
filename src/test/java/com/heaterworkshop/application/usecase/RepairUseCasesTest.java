@@ -3,15 +3,16 @@ package com.heaterworkshop.application.usecase;
 import com.heaterworkshop.application.port.CustomerNotifier;
 import com.heaterworkshop.domain.entity.RepairOrder;
 import com.heaterworkshop.domain.entity.RepairStatus;
+import com.heaterworkshop.domain.entity.ServiceType;
+import com.heaterworkshop.domain.exception.RepairOrderNotFoundException;
 import com.heaterworkshop.domain.repository.RepairOrderRepository;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
 import com.heaterworkshop.domain.valueobject.Diagnosis;
 import com.heaterworkshop.domain.valueobject.RepairOrderId;
-import com.heaterworkshop.domain.exception.RepairOrderNotFoundException;
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
 import java.time.Instant;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -77,6 +78,6 @@ class RepairUseCasesTest {
     private RepairOrder newOrder() {
         return new RepairOrder(new RepairOrderId("ORDER-550E8400-E29B-41D4-A716-446655440001"),
                 "Maria Gonzalez", new CustomerContact("+56911112222"), "Bosch",
-                "Therm 5700", "Turns off", Instant.parse("2026-09-03T18:30:00Z"));
+                "Therm 5700", ServiceType.REPAIR, "Turns off", Instant.parse("2026-09-03T18:30:00Z"));
     }
 }

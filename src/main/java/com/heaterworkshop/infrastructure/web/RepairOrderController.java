@@ -35,7 +35,7 @@ public class RepairOrderController {
     public RepairOrderResponse create(@Valid @RequestBody CreateRepairOrderRequest request) {
         return RepairOrderResponse.from(create.execute(request.customerName(),
                 new CustomerContact(request.customerContact()), request.heaterBrand(),
-                request.heaterModel(), request.reportedIssue()));
+                request.heaterModel(), request.serviceType(), request.reportedIssue()));
     }
 
     @GetMapping

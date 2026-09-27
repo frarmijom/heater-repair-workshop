@@ -15,6 +15,7 @@ public final class RepairOrder {
     private final CustomerContact customerContact;
     private final String heaterBrand;
     private final String heaterModel;
+    private final ServiceType serviceType;
     private final String reportedIssue;
     private final Instant receivedAt;
     private RepairStatus status;
@@ -22,25 +23,28 @@ public final class RepairOrder {
     private Instant completedAt;
 
     public RepairOrder(RepairOrderId id, String customerName, CustomerContact customerContact,
-                       String heaterBrand, String heaterModel, String reportedIssue,
+                       String heaterBrand, String heaterModel, ServiceType serviceType, String reportedIssue,
                        Instant receivedAt) {
         this.id = Objects.requireNonNull(id, "Repair order id is required.");
         this.customerName = requiredText(customerName, "Customer name");
         this.customerContact = Objects.requireNonNull(customerContact, "Customer contact is required.");
         this.heaterBrand = requiredText(heaterBrand, "Heater brand");
         this.heaterModel = requiredText(heaterModel, "Heater model");
-        this.reportedIssue = requiredText(reportedIssue, "Reported issue");
+        this.serviceType = Objects.requireNonNull(serviceType, "Service type is required.");
+        this.reportedIssue = serviceType == ServiceType.REPAIR
+                ? requiredText(reportedIssue, "Reported issue")
+                : (reportedIssue == null || reportedIssue.isBlank() ? "" : reportedIssue.trim());
         this.receivedAt = Objects.requireNonNull(receivedAt, "Received timestamp is required.");
         this.status = RepairStatus.RECEIVED;
     }
 
     public static RepairOrder restore(RepairOrderId id, String customerName,
                                       CustomerContact customerContact, String heaterBrand,
-                                      String heaterModel, String reportedIssue,
+                                      String heaterModel, ServiceType serviceType, String reportedIssue,
                                       RepairStatus status, Diagnosis diagnosis,
                                       Instant receivedAt, Instant completedAt) {
         RepairOrder order = new RepairOrder(id, customerName, customerContact, heaterBrand,
-                heaterModel, reportedIssue, receivedAt);
+                heaterModel, serviceType, reportedIssue, receivedAt);
         order.status = Objects.requireNonNull(status, "Repair status is required.");
         order.diagnosis = diagnosis;
         order.completedAt = completedAt;
@@ -106,6 +110,8 @@ public final class RepairOrder {
     public String heaterBrand() { return heaterBrand; }
 
     public String heaterModel() { return heaterModel; }
+
+    public ServiceType serviceType() { return serviceType; }
 
     public String reportedIssue() { return reportedIssue; }
 

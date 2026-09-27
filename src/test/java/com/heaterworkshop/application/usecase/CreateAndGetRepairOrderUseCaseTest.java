@@ -1,11 +1,14 @@
 package com.heaterworkshop.application.usecase;
 
 import com.heaterworkshop.domain.entity.RepairOrder;
+import com.heaterworkshop.domain.entity.ServiceType;
 import com.heaterworkshop.domain.exception.RepairOrderNotFoundException;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
 import com.heaterworkshop.domain.valueobject.RepairOrderId;
 import com.heaterworkshop.infrastructure.persistence.InMemoryRepairOrderRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -17,8 +20,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CreateAndGetRepairOrderUseCaseTest {
-    @Test
-    void createsPersistsAndRetrievesAnOrder() {
+    @ParameterizedTest
+    @EnumSource(ServiceType.class)
+    void createsPersistsAndRetrievesAnOrder(ServiceType type) {
         InMemoryRepairOrderRepository repository = new InMemoryRepairOrderRepository();
         Instant receivedAt = Instant.parse("2026-09-03T18:30:00Z");
         UUID uuid = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
@@ -27,11 +31,14 @@ class CreateAndGetRepairOrderUseCaseTest {
         GetRepairOrderUseCase get = new GetRepairOrderUseCase(repository);
 
         RepairOrder created = create.execute("Maria Gonzalez", new CustomerContact("+56911112222"),
-                "Bosch", "Therm 5700", "Turns off");
+                "Bosch", "Therm 5700", type, type == ServiceType.REPAIR ? "  Turns off  " : null);
 
         assertEquals("ORDER-550E8400-E29B-41D4-A716-446655440000", created.id().value());
         assertEquals(receivedAt, created.receivedAt());
         assertSame(created, get.execute(created.id()));
+        RepairOrder retrieved = get.execute(created.id());
+        assertEquals(type, retrieved.serviceType());
+        assertEquals(type == ServiceType.REPAIR ? "Turns off" : "", retrieved.reportedIssue());
     }
 
     @Test
