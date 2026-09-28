@@ -13,7 +13,7 @@ public class OpenApiConfiguration {
     OpenAPI heaterWorkshopOpenApi() {
         return new OpenAPI().info(new Info()
                 .title("Heater Repair Workshop API")
-                .description("API for receiving, starting and completing heater repair orders")
+                .description("API for work orders, repair diagnosis and customer decisions, maintenance and completion")
                 .version("1.0"));
     }
 }

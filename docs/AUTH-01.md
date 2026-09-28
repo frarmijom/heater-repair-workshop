@@ -13,7 +13,7 @@ Cloudflare same-origin API proxy. No production deployment is part of this chang
 | `POST /api/auth/login` | JSON `{ "email": "...", "password": "..." }`, valid CSRF required; `200` with email, invalid credentials `401` |
 | `GET /api/auth/session` | `200` with email for an authenticated session; otherwise `401` |
 | `POST /api/auth/logout` | Valid CSRF required; invalidates session and expires cookie; `204` |
-| Existing `/api/repair-orders/**` | Requires authentication; anonymous requests return `401`, including mutations without CSRF |
+| Existing `/api/work-orders/**` | Requires authentication; anonymous requests return `401`, including mutations without CSRF |
 
 Fetch CSRF before login and refresh it after successful login (the previous token
 is invalidated). Send the returned token under its returned header name on POST
@@ -58,11 +58,11 @@ Local Vite and Docker/Nginx continue using their existing API proxies.
 
 ## Administrative first-user provisioning
 
-No user is created automatically. Existing Hibernate `ddl-auto: update` creates
-`workshop_users` with the new entity. This retains the existing schema-management
-mechanism; no migration framework or alteration to repair-order mappings is introduced.
-Back up the database and verify the schema addition against a non-production copy
-before release. Tests use isolated H2 databases, not Neon or existing local volumes.
+No user is created automatically. Work Orders v1 uses `ddl-auto: validate`.
+For a fresh installation, `db/schema-v1.sql` creates `workshop_users` and `work_orders`;
+existing installations use `db/work-orders-v1.sql`, which leaves users intact.
+See [Work Orders v1 migration](WORK-ORDERS-V1.md) before starting the new backend.
+Tests use isolated databases, not Neon or existing local volumes.
 
 Generate a hash locally using the project's Spring Security encoder, without
 putting a password in command arguments, shell history, environment variables or Git:

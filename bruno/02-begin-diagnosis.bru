@@ -1,0 +1,16 @@
+meta {
+  name: begin-diagnosis
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/api/work-orders/{{orderId}}/diagnosis/begin
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-TOKEN: {{csrfToken}}
+}

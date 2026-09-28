@@ -1,0 +1,24 @@
+meta {
+  name: Start work order
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/api/work-orders/{{orderId}}/start
+  body: none
+  auth: none
+}
+
+headers {
+  X-CSRF-TOKEN: {{csrfToken}}
+  Content-Type: application/json
+}
+
+
+tests {
+  test("returns an in-progress order", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().status).to.equal("IN_PROGRESS");
+  });
+}

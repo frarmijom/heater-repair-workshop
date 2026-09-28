@@ -1,8 +1,8 @@
 package com.heaterworkshop.infrastructure.web;
 
 import com.heaterworkshop.domain.exception.InvalidDiagnosisException;
-import com.heaterworkshop.domain.exception.InvalidRepairStateException;
-import com.heaterworkshop.domain.exception.RepairOrderNotFoundException;
+import com.heaterworkshop.domain.exception.InvalidWorkOrderStateException;
+import com.heaterworkshop.domain.exception.WorkOrderNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
@@ -23,12 +23,12 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.NOT_FOUND, "The requested resource was not found.", request, Map.of());
     }
 
-    @ExceptionHandler(RepairOrderNotFoundException.class)
+    @ExceptionHandler(WorkOrderNotFoundException.class)
     ResponseEntity<ApiError> notFound(RuntimeException ex, HttpServletRequest request) {
         return response(HttpStatus.NOT_FOUND, ex.getMessage(), request, Map.of());
     }
 
-    @ExceptionHandler(InvalidRepairStateException.class)
+    @ExceptionHandler(InvalidWorkOrderStateException.class)
     ResponseEntity<ApiError> conflict(RuntimeException ex, HttpServletRequest request) {
         return response(HttpStatus.CONFLICT, ex.getMessage(), request, Map.of());
     }
@@ -40,7 +40,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     ResponseEntity<ApiError> duplicate(DataIntegrityViolationException ex, HttpServletRequest request) {
-        return response(HttpStatus.CONFLICT, "A repair order with that ID already exists.", request, Map.of());
+        return response(HttpStatus.CONFLICT, "A work order with that ID already exists.", request, Map.of());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

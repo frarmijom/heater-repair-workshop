@@ -1,6 +1,6 @@
 # Heater Repair Workshop API
 
-A Spring Boot microservice for managing heater repair orders. It preserves the framework-independent domain model introduced in Milestone 3 and adds REST adapters, JPA/PostgreSQL persistence, centralized JSON error responses, and OpenAPI documentation restricted to the `dev` profile.
+A Spring Boot microservice for managing workshop work orders. It preserves the framework-independent domain model introduced in Milestone 3 and adds REST adapters, JPA/PostgreSQL persistence, centralized JSON error responses, and OpenAPI documentation restricted to the `dev` profile.
 
 ## Requirements
 
@@ -76,7 +76,7 @@ Then run `docker compose up -d --build` again.
 
 ## Authentication (AUTH-01)
 
-All repair-order operations require a server session. See [AUTH-01 operations and QA](docs/AUTH-01.md)
+All work-order operations require a server session. See [AUTH-01 operations and QA](docs/AUTH-01.md)
 for initial user provisioning, CSRF, cookies, configuration and the manual QA checklist.
 There is no public registration, default user or default password.
 
@@ -85,36 +85,26 @@ with an empty body for infrastructure liveness monitoring.
 
 ## REST API
 
+Work Orders v1 uses `/api/work-orders`. See [the lifecycle, API and migration guide](docs/WORK-ORDERS-V1.md)
+for action payloads and the explicit historical-data policy. The old `/api/repair-orders`
+resource is no longer exposed. Backend and frontend must be released together.
+
 | Method | Path | Result |
 |---|---|---|
-| `POST` | `/api/repair-orders` | Creates an order in the `RECEIVED` state (`201`) |
-| `GET` | `/api/repair-orders` | Lists orders newest first (`200`) |
-| `GET` | `/api/repair-orders/{id}` | Retrieves an order (`200`) |
-| `PATCH` | `/api/repair-orders/{id}/start` | Starts a received order with a diagnosis (`200`) |
-| `PATCH` | `/api/repair-orders/{id}/complete` | Completes an order and notifies the customer (`200`) |
+| POST | `/api/work-orders` | Creates a V1 order; 201 |
+| GET | `/api/work-orders` | Lists orders newest first; 200 |
+| GET | `/api/work-orders/{id}` | Retrieves an order; 200 |
+| PATCH | `/api/work-orders/{id}/diagnosis/begin` | Begins repair diagnosis |
+| PATCH | `/api/work-orders/{id}/diagnosis` | Records `{ "diagnosis": "..." }` |
+| PATCH | `/api/work-orders/{id}/diagnosis/complete` | Waits for customer decision |
+| PATCH | `/api/work-orders/{id}/approve` | Records approval and `{ "partsAvailable": true/false }` |
+| PATCH | `/api/work-orders/{id}/reject` | Closes as NOT_APPROVED |
+| PATCH | `/api/work-orders/{id}/waiting-parts` | Maintenance waits for parts |
+| PATCH | `/api/work-orders/{id}/start` | Starts eligible work, without a diagnosis payload |
+| PATCH | `/api/work-orders/{id}/complete` | Completes work and invokes the existing notifier |
 
-The following examples require an authenticated cookie jar and CSRF token as described in [AUTH-01](docs/AUTH-01.md). Add `-b cookies.txt -H "X-CSRF-TOKEN: $CSRF_TOKEN"` to mutation requests.
-
-Create an order:
-
-```bash
-curl -i -X POST http://localhost:8080/api/repair-orders \
-  -H "Content-Type: application/json" \
-  -d '{"customerName":"Maria Gonzalez","customerContact":"+56911112222","heaterBrand":"Bosch","heaterModel":"Therm 5700","serviceType": "REPAIR", "reportedIssue":"The heater turns off after a few minutes."}'
-```
-
-The backend returns the generated `ORDER-<UUID>` identifier. Substitute that
-value for `ORDER_UUID` when starting and completing the order:
-
-```bash
-curl -i -X PATCH http://localhost:8080/api/repair-orders/ORDER_UUID/start \
-  -H "Content-Type: application/json" \
-  -d '{"diagnosis":"Damaged ignition sensor"}'
-
-curl -i -X PATCH http://localhost:8080/api/repair-orders/ORDER_UUID/complete
-```
-
-Errors use a consistent JSON contract containing `timestamp`, `status`, `error`, `message`, `path`, and `validationErrors`.
+All PATCH actions return the updated order with HTTP 200. Invalid transitions return 409;
+invalid input returns 400. Session and CSRF remain required.
 
 ## Contract testing
 
@@ -237,76 +227,30 @@ Boot, set `DB_URL` to the equivalent JDBC form beginning with
 Validate the production API after deployment:
 
 ```bash
-curl -i https://heater-repair-workshop-api.onrender.com/api/repair-orders
+curl -i https://heater-repair-workshop-api.onrender.com/api/work-orders
 curl -i https://heater-repair-workshop-api.onrender.com/route-that-does-not-exist
 ```
 
 Both unauthenticated requests must return `401`. `GET /api/health` must return
-`200` with an empty body. Authenticated repair-order requests retain their existing responses.
+`200` with an empty body. Authenticated work-order requests retain their existing responses.
 
-## Service types (I6)
+## Work Orders v1
 
-New create requests require `serviceType`: `REPAIR` or `MAINTENANCE`.
-`REPAIR` requires a nonblank `reportedIssue`. For `MAINTENANCE`, the field may
-be omitted, null, empty, whitespace, or observations. Absence is normalized to
-`""`; supplied text is trimmed. Every order response includes `serviceType` and
-always represents `reportedIssue` as a string. Both types use the existing
-RECEIVED → IN_PROGRESS → COMPLETED lifecycle and require diagnosis to start.
+`ServiceType` remains `REPAIR` or `MAINTENANCE`. Repairs require `reportedIssue`;
+maintenance observations are optional and normalize to `""`. Their lifecycles now differ.
 
-Repair request:
+**Schema initialization is explicit:** Hibernate uses `ddl-auto: validate` and will not
+create an empty replacement table. Before starting this version, apply
+`db/work-orders-v1.sql` to an existing installation with the old app stopped, or
+`db/schema-v1.sql` to an empty database. See the [migration runbook](docs/WORK-ORDERS-V1.md).
+Existing Docker volumes also require this step; no migration runs automatically.
 
-```json
-{
-  "customerName": "Juan Pérez",
-  "customerContact": "+56912345678",
-  "heaterBrand": "Junkers",
-  "heaterModel": "WR11",
-  "serviceType": "REPAIR",
-  "reportedIssue": "No enciende"
-}
+Verification:
+
+```bash
+mvn clean verify
+python3 scripts/test-work-orders-migration.py
 ```
 
-Maintenance request:
-
-```json
-{
-  "customerName": "Juan Pérez",
-  "customerContact": "+56912345678",
-  "heaterBrand": "Junkers",
-  "heaterModel": "WR11",
-  "serviceType": "MAINTENANCE",
-  "reportedIssue": ""
-}
-```
-
-Missing/null service types, unknown enum names, and repairs without an issue
-return HTTP 400. Existing authentication and CSRF requirements still apply.
-
-### Existing database compatibility
-
-`service_type` uses `@Enumerated(EnumType.STRING)` and a nullable column of
-length 32. New domain orders always require and persist an explicit type.
-Only the persistence adapter interprets a historical SQL NULL as `REPAIR`;
-reading does not backfill or modify historical rows. Saving such an order
-through the existing lifecycle writes its explicit `REPAIR` type.
-
-`reported_issue` now has a nullable JPA mapping (length 2000). The domain and
-adapter save absent maintenance observations as the empty string, not SQL NULL.
-A persisted MAINTENANCE with SQL NULL observations also restores as `""`.
-Historical repairs still require a valid issue; fallback does not bypass domain
-restoration invariants.
-
-The installed Hibernate 7.4.5.Final `StandardTableMigrator` adds missing columns
-but does not alter nullability of existing columns. With `ddl-auto: update`,
-PostgreSQL therefore gets a nullable `service_type varchar(32)` column, leaving
-historical rows NULL. An old `reported_issue NOT NULL` constraint can remain;
-empty-string normalization makes new maintenance records compatible with it.
-Fresh schemas allow SQL NULL according to the mapping. No manual data update,
-column default, table recreation, or migration framework is needed for I6.
-
-`JpaRepairOrderPostgresDdlTest` checks generated PostgreSQL DDL offline using
-the actual entity mapping. `JpaRepairOrderSchemaUpdateTest` executes Hibernate
-update against a populated legacy H2 schema in PostgreSQL mode and verifies
-both service types across all statuses after flushing and clearing JPA state.
-These tests do not connect to production or claim validation against a live
-PostgreSQL server. Normal schema-update permissions are still required at startup.
+The second command requires Docker and a local `postgres:17-alpine` image. It uses a
+disposable container without host ports or database volumes and removes it afterward.
