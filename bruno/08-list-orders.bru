@@ -1,0 +1,18 @@
+meta {
+  name: List work orders
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/work-orders
+  body: none
+  auth: none
+}
+
+tests {
+  test("returns the created order", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody()[0].id).to.equal(bru.getVar("orderId"));
+  });
+}

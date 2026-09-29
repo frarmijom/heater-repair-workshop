@@ -1,0 +1,16 @@
+meta {
+  name: complete-diagnosis
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/api/work-orders/{{orderId}}/diagnosis/complete
+  body: none
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  X-CSRF-TOKEN: {{csrfToken}}
+}

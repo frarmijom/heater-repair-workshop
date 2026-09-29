@@ -18,7 +18,7 @@ class CorsConfigurationTest {
     void acceptsAConfiguredOrigin() throws Exception {
         MockMvc mockMvc = mockMvc("http://localhost:5173, https://workshop.example.com");
 
-        mockMvc.perform(options("/api/repair-orders")
+        mockMvc.perform(options("/api/work-orders")
                         .header("Origin", "http://localhost:5173")
                         .header("Access-Control-Request-Method", "GET"))
                 .andExpect(status().isOk())
@@ -29,7 +29,7 @@ class CorsConfigurationTest {
     void rejectsAnOriginThatWasNotConfigured() throws Exception {
         MockMvc mockMvc = mockMvc("http://localhost:5173");
 
-        mockMvc.perform(options("/api/repair-orders")
+        mockMvc.perform(options("/api/work-orders")
                         .header("Origin", "https://untrusted.example.com")
                         .header("Access-Control-Request-Method", "GET"))
                 .andExpect(status().isForbidden())
@@ -49,7 +49,7 @@ class CorsConfigurationTest {
     }
 
     @RestController
-    @RequestMapping("/api/repair-orders")
+    @RequestMapping("/api/work-orders")
     static class ApiProbeController {
         @GetMapping
         String list() {

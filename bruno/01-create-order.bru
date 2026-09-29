@@ -1,16 +1,17 @@
 meta {
-  name: Create repair order
+  name: Create work order
   type: http
   seq: 1
 }
 
 post {
-  url: {{baseUrl}}/api/repair-orders
+  url: {{baseUrl}}/api/work-orders
   body: json
   auth: none
 }
 
 headers {
+  X-CSRF-TOKEN: {{csrfToken}}
   Content-Type: application/json
 }
 
@@ -20,6 +21,7 @@ body:json {
     "customerContact": "+56911112222",
     "heaterBrand": "Bosch",
     "heaterModel": "Therm 5700",
+    "serviceType": "REPAIR",
     "reportedIssue": "The heater turns off after a few minutes."
   }
 }

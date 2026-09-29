@@ -1,6 +1,11 @@
 package com.heaterworkshop.infrastructure.web;
 
 import com.heaterworkshop.infrastructure.persistence.*;
+import java.net.*;
+import java.net.http.*;
+import java.time.Instant;
+import java.util.*;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.*;
@@ -8,11 +13,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import java.net.*;
-import java.net.http.*;
-import java.time.Instant;
-import java.util.*;
-import java.util.regex.Pattern;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class AuthenticationIntegrationTest {
     @Value("${local.server.port}") int port;
     @Autowired SpringDataUserRepository users;
-    @Autowired SpringDataRepairOrderRepository orders;
+    @Autowired SpringDataWorkOrderRepository orders;
     @Autowired PasswordEncoder encoder;
     HttpClient client;
     CookieManager cookies;
@@ -71,13 +71,16 @@ class AuthenticationIntegrationTest {
         assertEquals(200, health.statusCode());
         assertEquals("", health.body());
         assertTrue(health.headers().allValues("Set-Cookie").isEmpty());
-        for (String[] endpoint : List.of(new String[]{"GET", "/api/repair-orders"},
-                new String[]{"GET", "/api/repair-orders/ORDER-550E8400-E29B-41D4-A716-446655440001"},
-                new String[]{"POST", "/api/repair-orders"},
-                new String[]{"PATCH", "/api/repair-orders/ORDER-550E8400-E29B-41D4-A716-446655440001/start"},
-                new String[]{"PATCH", "/api/repair-orders/ORDER-550E8400-E29B-41D4-A716-446655440001/complete"})) {
+        for (String[] endpoint : List.of(new String[]{"GET", "/api/work-orders"},
+                new String[]{"GET", "/api/work-orders/ORDER-550E8400-E29B-41D4-A716-446655440001"},
+                new String[]{"POST", "/api/work-orders"},
+                new String[]{"PATCH", "/api/work-orders/ORDER-550E8400-E29B-41D4-A716-446655440001/start"},
+                new String[]{"PATCH", "/api/work-orders/ORDER-550E8400-E29B-41D4-A716-446655440001/complete"})) {
             assertEquals(401, call(endpoint[0], endpoint[1], null, null).statusCode());
             assertEquals(401, call(endpoint[0], endpoint[1], null, csrf()).statusCode());
+        }
+        for (String action : List.of("diagnosis/begin", "diagnosis", "diagnosis/complete", "approve", "reject", "waiting-parts")) {
+            assertEquals(401, call("PATCH", "/api/work-orders/ORDER-550E8400-E29B-41D4-A716-446655440001/" + action, "{}", null).statusCode());
         }
         assertEquals(401, call("GET", "/api/auth/session", null, null).statusCode());
     }
@@ -119,21 +122,32 @@ class AuthenticationIntegrationTest {
         assertFalse(loggedIn.body().contains(savedUser.getPasswordHash()));
         assertFalse(output.getAll().contains(PASSWORD));
         assertEquals(200, call("GET", "/api/auth/session", null, null).statusCode());
-        assertEquals(403, call("POST", "/api/repair-orders", "{}", null).statusCode());
-        assertEquals(403, call("POST", "/api/repair-orders", "{}", oldToken).statusCode());
+        assertEquals(403, call("POST", "/api/work-orders", "{}", null).statusCode());
+        assertEquals(403, call("POST", "/api/work-orders", "{}", oldToken).statusCode());
         String token = csrf();
-        var created = call("POST", "/api/repair-orders", """
+        var created = call("POST", "/api/work-orders", """
                 {"customerName":"Test Customer","customerContact":"+56911112222","heaterBrand":"Bosch",
-                 "heaterModel":"Therm 5700","reportedIssue":"Turns off"}
+                 "heaterModel":"Therm 5700","serviceType":"REPAIR","reportedIssue":"Turns off"}
                 """, token);
         assertEquals(201, created.statusCode());
         String id = field(created.body(), "id");
-        assertEquals(200, call("GET", "/api/repair-orders", null, null).statusCode());
-        assertEquals(200, call("GET", "/api/repair-orders/" + id, null, null).statusCode());
-        var started = call("PATCH", "/api/repair-orders/" + id + "/start", "{\"diagnosis\":\"Damaged sensor\"}", token);
+        assertEquals(200, call("GET", "/api/work-orders", null, null).statusCode());
+        assertEquals(200, call("GET", "/api/work-orders/" + id, null, null).statusCode());
+        for (String action : List.of("diagnosis/begin", "diagnosis", "diagnosis/complete", "approve", "reject", "waiting-parts", "start", "complete")) {
+            assertEquals(403, call("PATCH", "/api/work-orders/" + id + "/" + action, "{}", null).statusCode());
+        }
+        assertEquals(409, call("PATCH", "/api/work-orders/" + id + "/start", null, token).statusCode());
+        assertEquals(200, call("PATCH", "/api/work-orders/" + id + "/diagnosis/begin", null, token).statusCode());
+        assertEquals(200, call("PATCH", "/api/work-orders/" + id + "/diagnosis", "{\"diagnosis\":\"Damaged sensor\"}", token).statusCode());
+        assertEquals(200, call("PATCH", "/api/work-orders/" + id + "/diagnosis/complete", null, token).statusCode());
+        var approved = call("PATCH", "/api/work-orders/" + id + "/approve", "{\"partsAvailable\":false}", token);
+        assertEquals(200, approved.statusCode());
+        assertEquals("APPROVED", field(approved.body(), "customerDecision"));
+        assertEquals("WAITING_PARTS", field(approved.body(), "status"));
+        var started = call("PATCH", "/api/work-orders/" + id + "/start", null, token);
         assertEquals(200, started.statusCode());
         assertEquals("IN_PROGRESS", field(started.body(), "status"));
-        var completed = call("PATCH", "/api/repair-orders/" + id + "/complete", null, token);
+        var completed = call("PATCH", "/api/work-orders/" + id + "/complete", null, token);
         assertEquals(200, completed.statusCode());
         assertEquals("COMPLETED", field(completed.body(), "status"));
         assertEquals(403, call("POST", "/api/auth/logout", null, null).statusCode());
@@ -144,7 +158,7 @@ class AuthenticationIntegrationTest {
         assertEquals(401, call("GET", "/api/auth/session", null, null).statusCode());
         // Replay the old credential directly, independent of cookie deletion in the browser.
         client = HttpClient.newHttpClient();
-        var replay = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/repair-orders"))
+        var replay = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/work-orders"))
                 .header("Cookie", "WORKSHOP_SESSION=" + authenticatedSession).build();
         assertEquals(401, client.send(replay, HttpResponse.BodyHandlers.ofString()).statusCode());
         var fixation = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/auth/session"))
