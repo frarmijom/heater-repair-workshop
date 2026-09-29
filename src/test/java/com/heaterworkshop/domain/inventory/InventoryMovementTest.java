@@ -44,6 +44,14 @@ class InventoryMovementTest {
                 BigDecimal.ONE, null));
     }
 
+    @Test void exposesI5ReversibilityPolicy() {
+        assertFalse(InventoryMovementType.INITIAL_ENTRY.isReversible());
+        assertTrue(InventoryMovementType.ENTRY.isReversible());
+        assertTrue(InventoryMovementType.ADJUSTMENT.isReversible());
+        assertFalse(InventoryMovementType.WORK_ORDER_CONSUMPTION.isReversible());
+        assertFalse(InventoryMovementType.REVERSAL.isReversible());
+    }
+
     @Test void wholeUnitRejectsFractionButDecimalUnitAcceptsIt() {
         UnitOfMeasure whole = UnitOfMeasure.create("Unidad", "un", false);
         UnitOfMeasure fractional = UnitOfMeasure.create("Metro", "m", true);

@@ -1,8 +1,10 @@
 package com.heaterworkshop.infrastructure.web;
 
 import tools.jackson.databind.JsonNode;
+import com.heaterworkshop.application.inventory.InventoryAdjustmentUseCases;
 import com.heaterworkshop.application.inventory.InventoryItemUseCases;
 import com.heaterworkshop.application.inventory.InventoryReceiptUseCases;
+import com.heaterworkshop.application.inventory.InventoryReversalUseCases;
 import com.heaterworkshop.domain.inventory.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +22,8 @@ public class InventoryItemController {
     private static final Set<String> CREATE_FIELDS = Set.of("sku", "name", "description", "categoryId", "unitId",
             "stockMinimum", "referenceUnitCost", "initialStock", "requestId");
     private static final Set<String> RECEIPT_FIELDS = Set.of("requestId", "quantity", "unitCost", "reason");
+    private static final Set<String> ADJUSTMENT_FIELDS = Set.of("requestId", "direction", "quantity", "reason");
+    private static final Set<String> REVERSAL_FIELDS = Set.of("requestId", "reason");
     private static final Set<String> EDIT_FIELDS = Set.of("sku", "name", "description", "categoryId", "unitId",
             "stockMinimum", "referenceUnitCost", "active", "expectedVersion");
 
@@ -28,14 +32,20 @@ public class InventoryItemController {
     private final UnitOfMeasureRepository units;
     private final InventoryMovementRepository movements;
     private final InventoryReceiptUseCases receipts;
+    private final InventoryAdjustmentUseCases adjustments;
+    private final InventoryReversalUseCases reversals;
 
     public InventoryItemController(InventoryItemUseCases items, InventoryCategoryRepository categories,
-                                   UnitOfMeasureRepository units, InventoryMovementRepository movements, InventoryReceiptUseCases receipts) {
+                                   UnitOfMeasureRepository units, InventoryMovementRepository movements,
+                                   InventoryReceiptUseCases receipts, InventoryAdjustmentUseCases adjustments,
+                                   InventoryReversalUseCases reversals) {
         this.items = items;
         this.categories = categories;
         this.units = units;
         this.movements = movements;
         this.receipts = receipts;
+        this.adjustments = adjustments;
+        this.reversals = reversals;
     }
 
     @GetMapping
@@ -74,6 +84,31 @@ public class InventoryItemController {
         validateObject(body, RECEIPT_FIELDS, true);
         InventoryMovement movement = receipts.receive(id, requiredDecimal(body.get("quantity"), "quantity"),
                 requiredDecimal(body.get("unitCost"), "unitCost"), text(body, "requestId", true),
+                authentication.getName(), text(body, "reason", true));
+        return ResponseEntity.status(HttpStatus.CREATED).body(InventoryMovementResponse.from(movement));
+    }
+
+    @PostMapping("/{id}/adjustments")
+    public ResponseEntity<InventoryMovementResponse> adjust(@PathVariable UUID id, @RequestBody JsonNode body,
+                                                            Authentication authentication) {
+        validateObject(body, ADJUSTMENT_FIELDS, true);
+        InventoryMovementDirection direction;
+        try {
+            direction = InventoryMovementDirection.valueOf(text(body, "direction", true));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("direction debe ser INCREASE o DECREASE.");
+        }
+        InventoryMovement movement = adjustments.adjust(id, direction,
+                requiredDecimal(body.get("quantity"), "quantity"), text(body, "requestId", true),
+                authentication.getName(), text(body, "reason", true));
+        return ResponseEntity.status(HttpStatus.CREATED).body(InventoryMovementResponse.from(movement));
+    }
+
+    @PostMapping("/movements/{movementId}/reversal")
+    public ResponseEntity<InventoryMovementResponse> reverse(@PathVariable UUID movementId, @RequestBody JsonNode body,
+                                                             Authentication authentication) {
+        validateObject(body, REVERSAL_FIELDS, true);
+        InventoryMovement movement = reversals.reverse(movementId, text(body, "requestId", true),
                 authentication.getName(), text(body, "reason", true));
         return ResponseEntity.status(HttpStatus.CREATED).body(InventoryMovementResponse.from(movement));
     }
