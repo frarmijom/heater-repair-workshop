@@ -254,3 +254,9 @@ python3 scripts/test-work-orders-migration.py
 
 The second command requires Docker and a local `postgres:17-alpine` image. It uses a
 disposable container without host ports or database volumes and removes it afterward.
+
+## HITO 04 — Inventory catalogs (I1)
+
+Category and unit administration requires the additive
+`db/inventory-catalogs-v1.sql` migration after the Work Orders v1 schema.
+See [I1 contract, migration and verification](docs/INVENTORY-I1.md).
