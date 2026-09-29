@@ -59,8 +59,7 @@ public record InventoryItem(UUID id, String sku, String name, String description
         if (!id.equals(movement.itemId()) || stockCurrent.compareTo(movement.stockBefore()) != 0) {
             throw new IllegalArgumentException("El movimiento no corresponde al stock actual del artículo.");
         }
-        if (!active && movement.type() != InventoryMovementType.ADJUSTMENT
-                && movement.type() != InventoryMovementType.REVERSAL) {
+        if (!active && movement.type() != InventoryMovementType.REVERSAL) {
             throw new IllegalArgumentException("No se puede operar sobre un artículo inactivo.");
         }
         if (!allowsDecimal && movement.quantity().stripTrailingZeros().scale() > 0) {

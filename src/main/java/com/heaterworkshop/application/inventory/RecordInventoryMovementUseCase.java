@@ -41,14 +41,14 @@ public class RecordInventoryMovementUseCase {
         InventoryMovement original = null;
         if (type == InventoryMovementType.REVERSAL) {
             original = movements.findById(Objects.requireNonNull(reversalOfMovementId)).orElseThrow(CatalogNotFoundException::new);
-            if (!original.itemId().equals(itemId) || original.type() == InventoryMovementType.REVERSAL
+            if (!original.itemId().equals(itemId) || !original.type().isReversible()
                     || original.direction() == direction || original.quantity().compareTo(quantity) != 0) {
                 throw new CatalogConflictException("La reversión debe compensar totalmente el movimiento original.");
             }
             if (movements.findByReversalOfMovementId(original.id()).isPresent())
                 throw new CatalogConflictException("El movimiento ya fue revertido.");
         }
-        if (!current.active() && type != InventoryMovementType.ADJUSTMENT && type != InventoryMovementType.REVERSAL)
+        if (!current.active() && type != InventoryMovementType.REVERSAL)
             throw new CatalogConflictException("No se puede operar sobre un artículo inactivo.");
         UnitOfMeasure unit = units.findByIdForUpdate(current.unitId()).orElseThrow(CatalogNotFoundException::new);
         InventoryMovement movement = InventoryMovement.create(current, unit, type, direction, quantity,
