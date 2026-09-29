@@ -55,6 +55,7 @@ public class JpaInventoryItemEntity {
 
     public void applyStock(InventoryItem value) {
         stockCurrent = value.stockCurrent();
+        referenceUnitCost = value.referenceUnitCost();
         updatedAt = value.updatedAt();
     }
 

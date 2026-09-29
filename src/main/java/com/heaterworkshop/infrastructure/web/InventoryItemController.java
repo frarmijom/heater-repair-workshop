@@ -2,6 +2,7 @@ package com.heaterworkshop.infrastructure.web;
 
 import tools.jackson.databind.JsonNode;
 import com.heaterworkshop.application.inventory.InventoryItemUseCases;
+import com.heaterworkshop.application.inventory.InventoryReceiptUseCases;
 import com.heaterworkshop.domain.inventory.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,7 @@ import java.util.stream.Collectors;
 public class InventoryItemController {
     private static final Set<String> CREATE_FIELDS = Set.of("sku", "name", "description", "categoryId", "unitId",
             "stockMinimum", "referenceUnitCost", "initialStock", "requestId");
+    private static final Set<String> RECEIPT_FIELDS = Set.of("requestId", "quantity", "unitCost", "reason");
     private static final Set<String> EDIT_FIELDS = Set.of("sku", "name", "description", "categoryId", "unitId",
             "stockMinimum", "referenceUnitCost", "active", "expectedVersion");
 
@@ -25,13 +27,15 @@ public class InventoryItemController {
     private final InventoryCategoryRepository categories;
     private final UnitOfMeasureRepository units;
     private final InventoryMovementRepository movements;
+    private final InventoryReceiptUseCases receipts;
 
     public InventoryItemController(InventoryItemUseCases items, InventoryCategoryRepository categories,
-                                   UnitOfMeasureRepository units, InventoryMovementRepository movements) {
+                                   UnitOfMeasureRepository units, InventoryMovementRepository movements, InventoryReceiptUseCases receipts) {
         this.items = items;
         this.categories = categories;
         this.units = units;
         this.movements = movements;
+        this.receipts = receipts;
     }
 
     @GetMapping
@@ -62,6 +66,21 @@ public class InventoryItemController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response(item,
                 categories.findById(item.categoryId()).orElseThrow(CatalogNotFoundException::new),
                 units.findById(item.unitId()).orElseThrow(CatalogNotFoundException::new)));
+    }
+
+    @PostMapping("/{id}/receipts")
+    public ResponseEntity<InventoryMovementResponse> receive(@PathVariable UUID id, @RequestBody JsonNode body,
+                                                              Authentication authentication) {
+        validateObject(body, RECEIPT_FIELDS, true);
+        InventoryMovement movement = receipts.receive(id, requiredDecimal(body.get("quantity"), "quantity"),
+                requiredDecimal(body.get("unitCost"), "unitCost"), text(body, "requestId", true),
+                authentication.getName(), text(body, "reason", true));
+        return ResponseEntity.status(HttpStatus.CREATED).body(InventoryMovementResponse.from(movement));
+    }
+
+    @GetMapping("/{id}/movements")
+    public List<InventoryMovementResponse> history(@PathVariable UUID id) {
+        return receipts.history(id).stream().map(InventoryMovementResponse::from).toList();
     }
 
     @PatchMapping("/{id}")

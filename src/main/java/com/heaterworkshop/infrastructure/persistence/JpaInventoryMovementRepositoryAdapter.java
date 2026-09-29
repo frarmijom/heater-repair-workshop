@@ -6,6 +6,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -49,5 +50,11 @@ public class JpaInventoryMovementRepositoryAdapter implements InventoryMovementR
     @Override @Transactional(readOnly = true)
     public long countByItemId(UUID itemId) {
         return repository.countByItemId(itemId);
+    }
+
+    @Override @Transactional(readOnly = true)
+    public List<InventoryMovement> findByItemId(UUID itemId) {
+        return repository.findByItemIdOrderByOccurredAtDesc(itemId).stream()
+                .map(JpaInventoryMovementEntity::toDomain).toList();
     }
 }

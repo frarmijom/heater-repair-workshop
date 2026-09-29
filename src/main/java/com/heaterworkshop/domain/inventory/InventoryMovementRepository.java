@@ -1,6 +1,7 @@
 package com.heaterworkshop.domain.inventory;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface InventoryMovementRepository {
@@ -10,4 +11,5 @@ public interface InventoryMovementRepository {
     InventoryMovement append(InventoryMovement movement);
     boolean existsByUnitId(UUID unitId);
     long countByItemId(UUID itemId);
+    List<InventoryMovement> findByItemId(UUID itemId);
 }
