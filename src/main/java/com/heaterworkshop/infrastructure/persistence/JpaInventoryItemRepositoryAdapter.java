@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -16,6 +17,12 @@ public class JpaInventoryItemRepositoryAdapter implements InventoryItemRepositor
 
     public JpaInventoryItemRepositoryAdapter(SpringDataInventoryItemRepository repository) {
         this.repository = repository;
+    }
+
+    @Override @Transactional(readOnly = true)
+    public List<InventoryItem> findAll() {
+        return repository.findAll().stream().map(JpaInventoryItemEntity::toDomain)
+                .sorted(java.util.Comparator.comparing(InventoryItem::sku)).toList();
     }
 
     @Override @Transactional(readOnly = true)
@@ -43,5 +50,15 @@ public class JpaInventoryItemRepositoryAdapter implements InventoryItemRepositor
         }
         entity.applyStock(item);
         return repository.saveAndFlush(entity).toDomain();
+    }
+
+    @Override
+    public InventoryItem saveMetadata(InventoryItem item, long expectedVersion) {
+        JpaInventoryItemEntity entity = repository.findByIdForUpdate(item.id()).orElseThrow();
+        if (entity.toDomain().version() != expectedVersion || item.version() != expectedVersion)
+            throw new CatalogConflictException("El artículo cambió. Recarga antes de editar.");
+        entity.applyMetadata(item);
+        InventoryItem saved = repository.saveAndFlush(entity).toDomain();
+        return saved;
     }
 }

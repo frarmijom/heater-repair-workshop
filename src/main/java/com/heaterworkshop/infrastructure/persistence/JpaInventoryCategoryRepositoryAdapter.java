@@ -13,6 +13,7 @@ public class JpaInventoryCategoryRepositoryAdapter implements InventoryCategoryR
         .sorted(Comparator.comparing((InventoryCategory value) -> CatalogText.key(value.name())).thenComparing(InventoryCategory::id)).toList(); }
     @Transactional(readOnly=true)
     public Optional<InventoryCategory> findById(UUID id) { return repository.findById(id).map(JpaInventoryCategoryEntity::toDomain); }
+    public Optional<InventoryCategory> findByIdForUpdate(UUID id) { return repository.findByIdForUpdate(id).map(JpaInventoryCategoryEntity::toDomain); }
     public InventoryCategory create(InventoryCategory value) { return repository.saveAndFlush(new JpaInventoryCategoryEntity(value)).toDomain(); }
     public InventoryCategory update(InventoryCategory value) {
         var entity=repository.findById(value.id()).orElseThrow(CatalogNotFoundException::new);

@@ -70,8 +70,8 @@ test against that same disposable database.
 
 ## Deferred scope
 
-I3 owns item create/edit APIs and functional initial stock. I4 owns entries and
-movement history; I5 owns adjustment/reversal workflows; I6 owns work-order
-consumption. Sales, purchasing, suppliers, tax, reservations, multiple
-warehouses, locations, transfers, lots, serials and notifications are outside
-HITO 04 v1.
+I3 adds item APIs and transactional initial stock; see
+[INVENTORY-I3.md](INVENTORY-I3.md). I4 owns later entries and full movement
+history; I5 owns adjustment/reversal workflows; I6 owns work-order consumption.
+Sales, purchasing, suppliers, tax, reservations, multiple warehouses,
+locations, transfers, lots, serials and notifications are outside HITO 04 v1.

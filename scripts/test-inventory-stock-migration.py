@@ -55,6 +55,10 @@ try:
     assert sql("SELECT count(*) FROM inventory_items").stdout.strip() == "0"
     assert sql("SELECT count(*) FROM inventory_movements").stdout.strip() == "0"
     assert sql(migration, False).returncode != 0
+    item_migration = (root / "db/inventory-items-v3.sql").read_text()
+    sql(item_migration)
+    assert sql("SELECT count(*) FROM inventory_item_creation_requests").stdout.strip() == "0"
+    assert sql(item_migration, False).returncode != 0
 
     precisions = sql("""SELECT table_name || '.' || column_name || ':' || numeric_precision || ',' || numeric_scale
       FROM information_schema.columns WHERE table_name IN ('inventory_items','inventory_movements')
@@ -171,12 +175,13 @@ try:
     environment = os.environ.copy()
     environment.update({
       "I2_POSTGRES_TEST": "true",
+      "I3_POSTGRES_TEST": "true",
       "DB_URL": f"jdbc:postgresql://127.0.0.1:{mapped_port}/postgres",
       "DB_USERNAME": "postgres",
       "DB_PASSWORD": "",
       "CORS_ALLOWED_ORIGINS": "http://localhost",
     })
-    java_test = subprocess.run(["mvn", "-q", "-Dtest=InventoryStockPostgresConcurrencyTest", "test"],
+    java_test = subprocess.run(["mvn", "-q", "-Dtest=InventoryStockPostgresConcurrencyTest,InventoryItemsPostgresIntegrationTest", "test"],
                    cwd=root, env=environment, text=True, capture_output=True)
     if java_test.returncode:
       raise RuntimeError(java_test.stdout + java_test.stderr)

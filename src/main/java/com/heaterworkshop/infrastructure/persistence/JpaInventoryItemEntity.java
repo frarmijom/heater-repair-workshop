@@ -58,6 +58,24 @@ public class JpaInventoryItemEntity {
         updatedAt = value.updatedAt();
     }
 
+    public void applyMetadata(InventoryItem value) {
+        sku = value.sku();
+        skuNormalized = value.sku();
+        name = value.name();
+        description = value.description();
+        categoryId = value.categoryId();
+        unitId = value.unitId();
+        stockMinimum = value.stockMinimum();
+        referenceUnitCost = value.referenceUnitCost();
+        active = value.active();
+        updatedAt = value.updatedAt();
+    }
+
+    public InventoryItem toDomainWithVersion(long loadedVersion) {
+        return InventoryItem.restore(id, sku, name, description, categoryId, unitId, stockCurrent,
+                stockMinimum, referenceUnitCost, active, loadedVersion, createdAt, updatedAt);
+    }
+
     public InventoryItem toDomain() {
         return InventoryItem.restore(id, sku, name, description, categoryId, unitId, stockCurrent,
                 stockMinimum, referenceUnitCost, active, version, createdAt, updatedAt);

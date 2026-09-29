@@ -1,6 +1,7 @@
 package com.heaterworkshop.infrastructure.web;
 
 import com.heaterworkshop.infrastructure.persistence.*;
+import com.heaterworkshop.domain.inventory.InventoryMovementType;
 import java.net.*;
 import java.net.http.*;
 import java.time.Instant;
@@ -28,12 +29,16 @@ class InventoryCatalogIntegrationTest {
     @Autowired PasswordEncoder encoder;
     @Autowired SpringDataInventoryCategoryRepository categories;
     @Autowired SpringDataUnitOfMeasureRepository units;
+    @Autowired SpringDataInventoryItemRepository items;
+    @Autowired SpringDataInventoryMovementRepository movements;
+    @Autowired SpringDataInventoryItemCreationRequestRepository creationRequests;
     HttpClient client;
     CookieManager cookies;
     // Synthetic test fixture only, never an initial production credential.
     static final String PASSWORD = "test-only-password-93";
 
     @BeforeEach void setup() {
+        creationRequests.deleteAll(); movements.deleteAll(); items.deleteAll();
         categories.deleteAll(); units.deleteAll();
         orders.deleteAll();
         users.deleteAll();
@@ -141,5 +146,104 @@ class InventoryCatalogIntegrationTest {
             assertEquals(403,call("PATCH",path+"/"+UUID.randomUUID(),"{}","invalid").statusCode());
             assertNotEquals(200,call("DELETE",path+"/"+UUID.randomUUID(),null,token).statusCode());
         }
+    }
+
+    @Test void itemCreationInitialStockIdempotencyAndSnapshotsAreAtomic() throws Exception {
+        String token=authenticate();
+        String categoryId=field(call("POST","/api/inventory/categories","{\"name\":\"Repuestos\"}",token).body(),"id");
+        String unitId=field(call("POST","/api/inventory/units","{\"name\":\"Metro\",\"symbol\":\"m\",\"allowsDecimal\":true}",token).body(),"id");
+        String body="{\"sku\":\"VALV-001\",\"name\":\"Válvula\",\"description\":\"\",\"categoryId\":\""+categoryId+"\",\"unitId\":\""+unitId+"\",\"stockMinimum\":10,\"referenceUnitCost\":2.1250,\"initialStock\":9,\"requestId\":\"create-valv-1\"}";
+        var created=call("POST","/api/inventory/items",body,token);
+        assertEquals(201,created.statusCode(),created.body());
+        String id=field(created.body(),"id");
+        assertTrue(created.body().contains("\"stockCurrent\":9.000"));
+        assertTrue(created.body().contains("\"lowStock\":true"));
+        assertTrue(created.body().contains("\"hasMovements\":true"));
+        var movement=movements.findByRequestId("create-valv-1").orElseThrow().toDomain();
+        assertEquals(InventoryMovementType.INITIAL_ENTRY,movement.type());
+        assertEquals(new java.math.BigDecimal("9.000"),movement.quantity());
+        assertEquals(new java.math.BigDecimal("0.000"),movement.stockBefore());
+        assertEquals(new java.math.BigDecimal("9.000"),movement.stockAfter());
+        assertEquals(new java.math.BigDecimal("2.1250"),movement.unitCostSnapshot());
+        assertEquals("VALV-001",movement.skuSnapshot());
+        assertEquals("Válvula",movement.itemNameSnapshot());
+        assertEquals("Metro",movement.unitNameSnapshot());
+        assertEquals("m",movement.unitSymbolSnapshot());
+        assertEquals("tech@example.test",movement.actor());
+        assertEquals(id,field(call("POST","/api/inventory/items",body,token).body(),"id"));
+        assertEquals(1,items.count());
+        assertEquals(1,movements.count());
+        assertEquals(409,call("POST","/api/inventory/items",body.replace("\"initialStock\":9","\"initialStock\":8"),token).statusCode());
+        String duplicateSku=body.replace("VALV-001","valv-001").replace("create-valv-1","create-valv-duplicate");
+        assertEquals(409,call("POST","/api/inventory/items",duplicateSku,token).statusCode());
+        assertEquals(1,items.count());
+        assertEquals(id,field(call("GET","/api/inventory/items/"+id,null,null).body(),"id"));
+        assertTrue(call("GET","/api/inventory/items",null,null).body().contains("\"category\":{\"id\":"));
+    }
+
+    @Test void zeroStockCreationHasNoMovementAndCanCorrectUnitBeforeHistory() throws Exception {
+        String token=authenticate();
+        String categoryId=field(call("POST","/api/inventory/categories","{\"name\":\"Consumibles\"}",token).body(),"id");
+        String unitOne=field(call("POST","/api/inventory/units","{\"name\":\"Unidad\",\"symbol\":\"un\",\"allowsDecimal\":false}",token).body(),"id");
+        String unitTwo=field(call("POST","/api/inventory/units","{\"name\":\"Metro\",\"symbol\":\"m\",\"allowsDecimal\":true}",token).body(),"id");
+        String payload="{\"sku\":\"CABLE-001\",\"name\":\"Cable\",\"categoryId\":\""+categoryId+"\",\"unitId\":\""+unitOne+"\",\"initialStock\":0,\"requestId\":\"create-cable-1\"}";
+        var created=call("POST","/api/inventory/items",payload,token);
+        assertEquals(201,created.statusCode(),created.body());
+        String itemId=field(created.body(),"id");
+        assertEquals(0,movements.count());
+        assertEquals(200,call("PATCH","/api/inventory/items/"+itemId,"{\"expectedVersion\":0,\"unitId\":\""+unitTwo+"\"}",token).statusCode());
+        assertEquals(0,movements.count());
+        var decimalItem=call("POST","/api/inventory/items",payload.replace("CABLE-001","CABLE-002").replace("create-cable-1","create-cable-2").replace(unitTwo,unitOne).replace("\"initialStock\":0","\"initialStock\":2.5"),token);
+        assertEquals(400,decimalItem.statusCode());
+        assertEquals(1,items.count());
+        assertEquals(0,movements.count());
+    }
+
+    @Test void acceptsExactDecimalStringsWithoutJavaScriptNumberRounding() throws Exception {
+        String token=authenticate();
+        String categoryId=field(call("POST","/api/inventory/categories","{\"name\":\"Cableado\"}",token).body(),"id");
+        String unitId=field(call("POST","/api/inventory/units","{\"name\":\"Metro\",\"symbol\":\"m\",\"allowsDecimal\":true}",token).body(),"id");
+        String body="{\"sku\":\"CABLE-DECIMAL\",\"name\":\"Cable decimal\",\"categoryId\":\""+categoryId+"\",\"unitId\":\""+unitId+"\",\"stockMinimum\":\"1.250\",\"referenceUnitCost\":\"2.1250\",\"initialStock\":\"1.500\",\"requestId\":\"decimal-string-1\"}";
+        var created=call("POST","/api/inventory/items",body,token);
+        assertEquals(201,created.statusCode(),created.body());
+        assertTrue(created.body().contains("\"stockCurrent\":1.500"));
+        assertEquals(new java.math.BigDecimal("1.500"),movements.findByRequestId("decimal-string-1").orElseThrow().toDomain().quantity());
+    }
+
+    @Test void editsAreVersionedUnitLocksAndDeactivationPreservesStock() throws Exception {
+        String token=authenticate();
+        String categoryId=field(call("POST","/api/inventory/categories","{\"name\":\"Filtros\"}",token).body(),"id");
+        String unitOne=field(call("POST","/api/inventory/units","{\"name\":\"Unidad\",\"symbol\":\"un\",\"allowsDecimal\":false}",token).body(),"id");
+        String unitTwo=field(call("POST","/api/inventory/units","{\"name\":\"Caja\",\"symbol\":\"cj\",\"allowsDecimal\":false}",token).body(),"id");
+        String payload="{\"sku\":\"FILTER-001\",\"name\":\"Filtro\",\"categoryId\":\""+categoryId+"\",\"unitId\":\""+unitOne+"\",\"initialStock\":2,\"stockMinimum\":1,\"requestId\":\"create-filter-1\"}";
+        var created=call("POST","/api/inventory/items",payload,token);
+        String id=field(created.body(),"id");
+        assertEquals(409,call("PATCH","/api/inventory/items/"+id,"{\"expectedVersion\":1,\"unitId\":\""+unitTwo+"\"}",token).statusCode());
+        var edited=call("PATCH","/api/inventory/items/"+id,"{\"expectedVersion\":1,\"name\":\"Filtro reforzado\"}",token);
+        assertEquals(200,edited.statusCode(),edited.body());
+        assertEquals(409,call("PATCH","/api/inventory/items/"+id,"{\"expectedVersion\":1,\"active\":false}",token).statusCode());
+        var inactive=call("PATCH","/api/inventory/items/"+id,"{\"expectedVersion\":2,\"active\":false}",token);
+        assertEquals(200,inactive.statusCode());
+        assertTrue(inactive.body().contains("\"stockCurrent\":2.000"));
+        assertTrue(inactive.body().contains("\"active\":false"));
+        assertEquals(200,call("PATCH","/api/inventory/items/"+id,"{\"expectedVersion\":3,\"active\":true}",token).statusCode());
+    }
+
+    @Test void rejectsInvalidFieldsInactiveCatalogsAndUnauthenticatedWrites() throws Exception {
+        assertEquals(401,call("GET","/api/inventory/items",null,null).statusCode());
+        assertEquals(401,call("POST","/api/inventory/items","{}",null).statusCode());
+        String token=authenticate();
+        assertEquals(403,call("POST","/api/inventory/items","{}",null).statusCode());
+        String categoryId=field(call("POST","/api/inventory/categories","{\"name\":\"Inactiva\"}",token).body(),"id");
+        String unitId=field(call("POST","/api/inventory/units","{\"name\":\"Un\",\"symbol\":\"u\",\"allowsDecimal\":false}",token).body(),"id");
+        call("PATCH","/api/inventory/categories/"+categoryId,"{\"expectedVersion\":0,\"active\":false}",token);
+        String payload="{\"sku\":\"INVALID-1\",\"name\":\"Invalid\",\"categoryId\":\""+categoryId+"\",\"unitId\":\""+unitId+"\",\"requestId\":\"invalid-1\"}";
+        assertEquals(409,call("POST","/api/inventory/items",payload,token).statusCode());
+        assertEquals(400,call("POST","/api/inventory/items",payload.replace("\"requestId\":\"invalid-1\"","\"requestId\":\"invalid-2\",\"stockCurrent\":5"),token).statusCode());
+        String activeCategory=field(call("POST","/api/inventory/categories","{\"name\":\"Activa\"}",token).body(),"id");
+        call("PATCH","/api/inventory/units/"+unitId,"{\"expectedVersion\":0,\"active\":false}",token);
+        assertEquals(409,call("POST","/api/inventory/items",payload.replace(categoryId,activeCategory)
+            .replace("INVALID-1","INVALID-2").replace("invalid-1","invalid-3"),token).statusCode());
+        assertEquals(0,items.count());
     }
 }
