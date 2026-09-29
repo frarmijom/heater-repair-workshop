@@ -87,8 +87,10 @@ Frontend validation: npm test and npm run build.
 
 ## Deferred to I2+
 
-When InventoryItem exists, category/unit assignment must reject new inactive
-references. UnitOfMeasureUseCases.edit is the point to add the allowsDecimal guard
-for assigned units, coordinated transactionally with item assignment. There is
-no fabricated assigned-item repository in I1. No inventory item or stock-related
-code, tables or screens are introduced here.
+I2 implements the historical `allowsDecimal` protection: changing that property
+is rejected once a unit has movement history. Later item creation in I3 must
+reject new assignments to inactive categories or units. I1 itself introduced no
+item, stock or movement API.
+
+See [INVENTORY-I2.md](INVENTORY-I2.md) for the stock core and its remaining
+functional scope.

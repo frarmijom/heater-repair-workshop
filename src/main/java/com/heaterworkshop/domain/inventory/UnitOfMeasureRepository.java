@@ -5,6 +5,7 @@ import java.util.UUID;
 public interface UnitOfMeasureRepository {
     List<UnitOfMeasure> findAll();
     Optional<UnitOfMeasure> findById(UUID id);
+    Optional<UnitOfMeasure> findByIdForUpdate(UUID id);
     UnitOfMeasure create(UnitOfMeasure value);
     UnitOfMeasure update(UnitOfMeasure value);
 }

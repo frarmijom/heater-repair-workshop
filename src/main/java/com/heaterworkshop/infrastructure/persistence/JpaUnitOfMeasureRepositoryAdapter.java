@@ -13,6 +13,7 @@ public class JpaUnitOfMeasureRepositoryAdapter implements UnitOfMeasureRepositor
         .sorted(Comparator.comparing((UnitOfMeasure value) -> CatalogText.key(value.name())).thenComparing(UnitOfMeasure::id)).toList(); }
     @Transactional(readOnly=true)
     public Optional<UnitOfMeasure> findById(UUID id) { return repository.findById(id).map(JpaUnitOfMeasureEntity::toDomain); }
+    public Optional<UnitOfMeasure> findByIdForUpdate(UUID id) { return repository.findByIdForUpdate(id).map(JpaUnitOfMeasureEntity::toDomain); }
     public UnitOfMeasure create(UnitOfMeasure value) { return repository.saveAndFlush(new JpaUnitOfMeasureEntity(value)).toDomain(); }
     public UnitOfMeasure update(UnitOfMeasure value) {
         var entity=repository.findById(value.id()).orElseThrow(CatalogNotFoundException::new);
