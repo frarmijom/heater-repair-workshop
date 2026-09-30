@@ -32,13 +32,14 @@ class InventoryCatalogIntegrationTest {
     @Autowired SpringDataInventoryItemRepository items;
     @Autowired SpringDataInventoryMovementRepository movements;
     @Autowired SpringDataInventoryItemCreationRequestRepository creationRequests;
+    @Autowired SpringDataInventoryKitComponentRepository kitComponents;
     HttpClient client;
     CookieManager cookies;
     // Synthetic test fixture only, never an initial production credential.
     static final String PASSWORD = "test-only-password-93";
 
     @BeforeEach void setup() {
-        creationRequests.deleteAll(); movements.deleteAll(); items.deleteAll();
+        creationRequests.deleteAll(); movements.deleteAll(); kitComponents.deleteAll(); items.deleteAll();
         categories.deleteAll(); units.deleteAll();
         orders.deleteAll();
         users.deleteAll();
@@ -179,6 +180,35 @@ class InventoryCatalogIntegrationTest {
         assertEquals(1,items.count());
         assertEquals(id,field(call("GET","/api/inventory/items/"+id,null,null).body(),"id"));
         assertTrue(call("GET","/api/inventory/items",null,null).body().contains("\"category\":{\"id\":"));
+    }
+
+    @Test void createsKitAndReplacesBomWithoutMovingStock() throws Exception {
+        String token=authenticate();
+        String categoryId=field(call("POST","/api/inventory/categories","{\"name\":\"Kits\"}",token).body(),"id");
+        String unitId=field(call("POST","/api/inventory/units","{\"name\":\"Unidad\",\"symbol\":\"un\",\"allowsDecimal\":false}",token).body(),"id");
+        String component=field(call("POST","/api/inventory/items","{\"sku\":\"MEM-001\",\"name\":\"Membrana\",\"categoryId\":\""+categoryId+"\",\"unitId\":\""+unitId+"\",\"initialStock\":0,\"requestId\":\"component-1\"}",token).body(),"id");
+        var created=call("POST","/api/inventory/items","{\"sku\":\"KIT-001\",\"name\":\"Kit mantención\",\"categoryId\":\""+categoryId+"\",\"unitId\":\""+unitId+"\",\"itemType\":\"KIT\",\"initialStock\":0,\"requestId\":\"kit-1\"}",token);
+        assertEquals(201,created.statusCode(),created.body());
+        String kit=field(created.body(),"id");
+        assertTrue(created.body().contains("\"itemType\":\"KIT\""));
+        assertEquals(0,movements.count());
+        String bom="{\"components\":[{\"componentItemId\":\""+component+"\",\"quantity\":2}]}";
+        var replaced=call("PUT","/api/inventory/items/"+kit+"/bom",bom,token);
+        assertEquals(200,replaced.statusCode(),replaced.body());
+        assertTrue(replaced.body().contains("\"componentItemId\":\""+component+"\""));
+        var quantityMatcher = Pattern.compile("\\\"quantity\\\"\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)").matcher(replaced.body());
+        assertTrue(quantityMatcher.find(), "Missing quantity");
+        assertEquals(0, new java.math.BigDecimal(quantityMatcher.group(1)).compareTo(new java.math.BigDecimal("2.000")));
+        var fetched=call("GET","/api/inventory/items/"+kit+"/bom",null,null);
+        assertEquals(200,fetched.statusCode(),fetched.body());
+        assertTrue(fetched.body().contains("\"componentItemId\":\""+component+"\""));
+        var fetchedQuantityMatcher = Pattern.compile("\\\"quantity\\\"\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)").matcher(fetched.body());
+        assertTrue(fetchedQuantityMatcher.find(), "Missing persisted quantity");
+        assertEquals(0, new java.math.BigDecimal(fetchedQuantityMatcher.group(1)).compareTo(new java.math.BigDecimal("2.000")));
+        assertEquals(0,movements.count());
+        assertEquals(409,call("PUT","/api/inventory/items/"+component+"/bom",bom,token).statusCode());
+        assertEquals(400,call("PUT","/api/inventory/items/"+kit+"/bom","{\"components\":[{\"componentItemId\":\""+component+"\",\"quantity\":1.5}]}",token).statusCode());
+        assertEquals(0,movements.count());
     }
 
     @Test void zeroStockCreationHasNoMovementAndCanCorrectUnitBeforeHistory() throws Exception {

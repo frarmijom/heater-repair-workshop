@@ -5,6 +5,7 @@ import com.heaterworkshop.application.inventory.InventoryAdjustmentUseCases;
 import com.heaterworkshop.application.inventory.InventoryItemUseCases;
 import com.heaterworkshop.application.inventory.InventoryReceiptUseCases;
 import com.heaterworkshop.application.inventory.InventoryReversalUseCases;
+import com.heaterworkshop.application.inventory.InventoryKitUseCases;
 import com.heaterworkshop.domain.inventory.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +21,9 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/inventory/items")
 public class InventoryItemController {
     private static final Set<String> CREATE_FIELDS = Set.of("sku", "name", "description", "categoryId", "unitId",
-            "stockMinimum", "referenceUnitCost", "initialStock", "requestId");
+            "stockMinimum", "referenceUnitCost", "initialStock", "itemType", "requestId");
+    private static final Set<String> BOM_FIELDS = Set.of("components");
+    private static final Set<String> BOM_COMPONENT_FIELDS = Set.of("componentItemId", "quantity");
     private static final Set<String> RECEIPT_FIELDS = Set.of("requestId", "quantity", "unitCost", "reason");
     private static final Set<String> ADJUSTMENT_FIELDS = Set.of("requestId", "direction", "quantity", "reason");
     private static final Set<String> REVERSAL_FIELDS = Set.of("requestId", "reason");
@@ -34,11 +37,12 @@ public class InventoryItemController {
     private final InventoryReceiptUseCases receipts;
     private final InventoryAdjustmentUseCases adjustments;
     private final InventoryReversalUseCases reversals;
+    private final InventoryKitUseCases kits;
 
     public InventoryItemController(InventoryItemUseCases items, InventoryCategoryRepository categories,
                                    UnitOfMeasureRepository units, InventoryMovementRepository movements,
                                    InventoryReceiptUseCases receipts, InventoryAdjustmentUseCases adjustments,
-                                   InventoryReversalUseCases reversals) {
+                                   InventoryReversalUseCases reversals, InventoryKitUseCases kits) {
         this.items = items;
         this.categories = categories;
         this.units = units;
@@ -46,6 +50,7 @@ public class InventoryItemController {
         this.receipts = receipts;
         this.adjustments = adjustments;
         this.reversals = reversals;
+        this.kits = kits;
     }
 
     @GetMapping
@@ -71,11 +76,32 @@ public class InventoryItemController {
         InventoryItem item = items.create(text(body, "sku", true), text(body, "name", true),
                 optionalText(body, "description"), uuid(body, "categoryId", true), uuid(body, "unitId", true),
                 decimal(body, "stockMinimum", BigDecimal.ZERO), decimal(body, "referenceUnitCost", BigDecimal.ZERO),
-                decimal(body, "initialStock", BigDecimal.ZERO), text(body, "requestId", true),
+                decimal(body, "initialStock", BigDecimal.ZERO), itemType(body), text(body, "requestId", true),
                 authentication.getName());
         return ResponseEntity.status(HttpStatus.CREATED).body(response(item,
                 categories.findById(item.categoryId()).orElseThrow(CatalogNotFoundException::new),
                 units.findById(item.unitId()).orElseThrow(CatalogNotFoundException::new)));
+    }
+
+
+    @GetMapping("/{id}/bom")
+    public InventoryKitBomResponse bom(@PathVariable UUID id) {
+        return InventoryKitBomResponse.from(kits.get(id));
+    }
+
+    @PutMapping("/{id}/bom")
+    public InventoryKitBomResponse replaceBom(@PathVariable UUID id, @RequestBody JsonNode body) {
+        validateObject(body, BOM_FIELDS, false);
+        JsonNode components = body.get("components");
+        if (components == null || !components.isArray())
+            throw new IllegalArgumentException("components debe ser un arreglo.");
+        List<InventoryKitUseCases.ComponentInput> inputs = new ArrayList<>();
+        for (JsonNode component : components) {
+            validateObject(component, BOM_COMPONENT_FIELDS, false);
+            inputs.add(new InventoryKitUseCases.ComponentInput(uuid(component, "componentItemId", true),
+                    requiredDecimal(component.get("quantity"), "quantity")));
+        }
+        return InventoryKitBomResponse.from(kits.replace(id, inputs));
     }
 
     @PostMapping("/{id}/receipts")
@@ -145,6 +171,14 @@ public class InventoryItemController {
             String name = entry.getKey();
             if (!allowed.contains(name)) throw new IllegalArgumentException("Campo no autorizado: " + name);
         });
+    }
+
+
+    private static InventoryItemType itemType(JsonNode body) {
+        String value = text(body, "itemType", false);
+        if (value == null) return InventoryItemType.STANDARD;
+        try { return InventoryItemType.valueOf(value); }
+        catch (IllegalArgumentException exception) { throw new IllegalArgumentException("itemType debe ser STANDARD o KIT."); }
     }
 
     private static String text(JsonNode body, String field, boolean required) {

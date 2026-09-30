@@ -10,6 +10,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -46,12 +47,20 @@ public class InventoryItemUseCases {
     public InventoryItem create(String sku, String name, String description, UUID categoryId, UUID unitId,
                                 BigDecimal stockMinimum, BigDecimal referenceUnitCost, BigDecimal initialStock,
                                 String requestId, String actor) {
+        return create(sku, name, description, categoryId, unitId, stockMinimum, referenceUnitCost, initialStock,
+                InventoryItemType.STANDARD, requestId, actor);
+    }
+
+    @Transactional
+    public InventoryItem create(String sku, String name, String description, UUID categoryId, UUID unitId,
+                                BigDecimal stockMinimum, BigDecimal referenceUnitCost, BigDecimal initialStock,
+                                InventoryItemType itemType, String requestId, String actor) {
         requestId = CatalogText.required(requestId, 128);
         InventoryQuantity.nonNegative(stockMinimum, 3, "stockMinimum");
         InventoryQuantity.nonNegative(referenceUnitCost, 4, "referenceUnitCost");
         InventoryQuantity.nonNegative(initialStock, 3, "initialStock");
         InventoryItem item = InventoryItem.create(sku, name, description, categoryId, unitId,
-                stockMinimum, referenceUnitCost);
+                stockMinimum, referenceUnitCost).asType(Objects.requireNonNull(itemType));
         String payloadHash = payloadHash(item, initialStock, actor);
         if (!requests.claim(requestId, item.id(), payloadHash)) {
             InventoryItemCreationRequest prior = requests.findByRequestId(requestId).orElseThrow();
@@ -112,7 +121,7 @@ public class InventoryItemUseCases {
 
     private String payloadHash(InventoryItem item, BigDecimal initialStock, String actor) {
         String value = String.join("\n", item.sku(), item.name(), item.description() == null ? "" : item.description(),
-                item.categoryId().toString(), item.unitId().toString(), canonical(item.stockMinimum()),
+                item.categoryId().toString(), item.unitId().toString(), item.itemType().name(), canonical(item.stockMinimum()),
                 canonical(item.referenceUnitCost()), canonical(initialStock), actor);
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
