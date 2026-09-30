@@ -1,9 +1,12 @@
 package com.heaterworkshop.infrastructure.persistence;
 
 import com.heaterworkshop.domain.inventory.InventoryItem;
+import com.heaterworkshop.domain.inventory.InventoryItemType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import org.hibernate.annotations.ColumnTransformer;
@@ -23,6 +26,7 @@ public class JpaInventoryItemEntity {
     @Column(length = 1000) private String description;
     @Column(name = "category_id", nullable = false) private UUID categoryId;
     @Column(name = "unit_id", nullable = false) private UUID unitId;
+    @Enumerated(EnumType.STRING) @Column(name = "item_type", nullable = false, length = 16) private InventoryItemType itemType;
     @Column(name = "stock_current", nullable = false, precision = 19, scale = 3) private BigDecimal stockCurrent;
     @Column(name = "stock_minimum", nullable = false, precision = 19, scale = 3) private BigDecimal stockMinimum;
     @Column(name = "reference_unit_cost", nullable = false, precision = 19, scale = 4) private BigDecimal referenceUnitCost;
@@ -46,6 +50,7 @@ public class JpaInventoryItemEntity {
         description = value.description();
         categoryId = value.categoryId();
         unitId = value.unitId();
+        itemType = value.itemType();
         stockCurrent = value.stockCurrent();
         stockMinimum = value.stockMinimum();
         referenceUnitCost = value.referenceUnitCost();
@@ -66,6 +71,7 @@ public class JpaInventoryItemEntity {
         description = value.description();
         categoryId = value.categoryId();
         unitId = value.unitId();
+        itemType = value.itemType();
         stockMinimum = value.stockMinimum();
         referenceUnitCost = value.referenceUnitCost();
         active = value.active();
@@ -73,12 +79,12 @@ public class JpaInventoryItemEntity {
     }
 
     public InventoryItem toDomainWithVersion(long loadedVersion) {
-        return InventoryItem.restore(id, sku, name, description, categoryId, unitId, stockCurrent,
+        return InventoryItem.restore(id, sku, name, description, categoryId, unitId, itemType, stockCurrent,
                 stockMinimum, referenceUnitCost, active, loadedVersion, createdAt, updatedAt);
     }
 
     public InventoryItem toDomain() {
-        return InventoryItem.restore(id, sku, name, description, categoryId, unitId, stockCurrent,
+        return InventoryItem.restore(id, sku, name, description, categoryId, unitId, itemType, stockCurrent,
                 stockMinimum, referenceUnitCost, active, version, createdAt, updatedAt);
     }
 }

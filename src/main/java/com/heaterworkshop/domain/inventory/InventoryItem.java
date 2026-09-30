@@ -9,13 +9,14 @@ import java.util.Objects;
 import java.util.UUID;
 
 public record InventoryItem(UUID id, String sku, String name, String description,
-                           UUID categoryId, UUID unitId, BigDecimal stockCurrent,
+                           UUID categoryId, UUID unitId, InventoryItemType itemType, BigDecimal stockCurrent,
                            BigDecimal stockMinimum, BigDecimal referenceUnitCost,
                            boolean active, long version, Instant createdAt, Instant updatedAt) {
     public InventoryItem {
         Objects.requireNonNull(id);
         Objects.requireNonNull(categoryId);
         Objects.requireNonNull(unitId);
+        Objects.requireNonNull(itemType);
         Objects.requireNonNull(createdAt);
         Objects.requireNonNull(updatedAt);
         sku = normalizeSku(sku);
@@ -31,7 +32,7 @@ public record InventoryItem(UUID id, String sku, String name, String description
                                        UUID categoryId, UUID unitId,
                                        BigDecimal stockMinimum, BigDecimal referenceUnitCost) {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        return new InventoryItem(UUID.randomUUID(), sku, name, description, categoryId, unitId,
+        return new InventoryItem(UUID.randomUUID(), sku, name, description, categoryId, unitId, InventoryItemType.STANDARD,
                 BigDecimal.ZERO.setScale(3), stockMinimum, referenceUnitCost, true, 0, now, now);
     }
 
@@ -39,8 +40,21 @@ public record InventoryItem(UUID id, String sku, String name, String description
                                         UUID categoryId, UUID unitId, BigDecimal stockCurrent,
                                         BigDecimal stockMinimum, BigDecimal referenceUnitCost,
                                         boolean active, long version, Instant createdAt, Instant updatedAt) {
-        return new InventoryItem(id, sku, name, description, categoryId, unitId, stockCurrent,
+        return restore(id, sku, name, description, categoryId, unitId, InventoryItemType.STANDARD, stockCurrent,
                 stockMinimum, referenceUnitCost, active, version, createdAt, updatedAt);
+    }
+
+    public static InventoryItem restore(UUID id, String sku, String name, String description,
+                                        UUID categoryId, UUID unitId, InventoryItemType itemType, BigDecimal stockCurrent,
+                                        BigDecimal stockMinimum, BigDecimal referenceUnitCost,
+                                        boolean active, long version, Instant createdAt, Instant updatedAt) {
+        return new InventoryItem(id, sku, name, description, categoryId, unitId, itemType, stockCurrent,
+                stockMinimum, referenceUnitCost, active, version, createdAt, updatedAt);
+    }
+
+    public InventoryItem asType(InventoryItemType newType) {
+        return restore(id, sku, name, description, categoryId, unitId, newType, stockCurrent, stockMinimum,
+                referenceUnitCost, active, version, createdAt, Instant.now().truncatedTo(ChronoUnit.MICROS));
     }
 
     public boolean lowStock() {
@@ -49,7 +63,7 @@ public record InventoryItem(UUID id, String sku, String name, String description
 
     public InventoryItem edit(String sku, String name, String description, UUID categoryId, UUID unitId,
                               BigDecimal stockMinimum, BigDecimal referenceUnitCost, boolean active) {
-        return InventoryItem.restore(id, sku, name, description, categoryId, unitId, stockCurrent,
+        return InventoryItem.restore(id, sku, name, description, categoryId, unitId, itemType, stockCurrent,
                 stockMinimum, referenceUnitCost, active, version, createdAt,
                 Instant.now().truncatedTo(ChronoUnit.MICROS));
     }

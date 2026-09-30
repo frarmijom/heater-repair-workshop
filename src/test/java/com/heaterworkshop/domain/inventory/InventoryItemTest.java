@@ -17,6 +17,7 @@ class InventoryItemTest {
         assertEquals(new BigDecimal("2.500"), item.stockMinimum());
         assertEquals(new BigDecimal("4.1250"), item.referenceUnitCost());
         assertTrue(item.lowStock());
+        assertEquals(InventoryItemType.STANDARD, item.itemType());
     }
 
     @Test void rejectsNegativeAndInexactValues() {
