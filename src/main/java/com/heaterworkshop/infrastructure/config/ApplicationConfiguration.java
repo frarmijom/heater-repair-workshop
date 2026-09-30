@@ -10,6 +10,13 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class ApplicationConfiguration {
+    @Bean com.heaterworkshop.application.inventory.InventoryCategoryUseCases inventoryCategories(com.heaterworkshop.domain.inventory.InventoryCategoryRepository repository) {
+        return new com.heaterworkshop.application.inventory.InventoryCategoryUseCases(repository);
+    }
+    @Bean com.heaterworkshop.application.inventory.UnitOfMeasureUseCases inventoryUnits(com.heaterworkshop.domain.inventory.UnitOfMeasureRepository repository,
+                                                                                       com.heaterworkshop.domain.inventory.InventoryMovementRepository movements) {
+        return new com.heaterworkshop.application.inventory.UnitOfMeasureUseCases(repository, movements);
+    }
     private static final Logger LOGGER = LoggerFactory.getLogger(ApplicationConfiguration.class);
     @Bean CreateWorkOrderUseCase createWorkOrderUseCase(WorkOrderRepository r) { return new CreateWorkOrderUseCase(r); }
     @Bean ListWorkOrdersUseCase listWorkOrdersUseCase(WorkOrderRepository r) { return new ListWorkOrdersUseCase(r); }
