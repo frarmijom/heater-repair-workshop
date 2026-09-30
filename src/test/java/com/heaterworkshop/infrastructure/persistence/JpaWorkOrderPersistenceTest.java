@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class JpaWorkOrderPersistenceTest {
     @Test void roundTripsServiceSpecificStatesAndLegacyProvenance() {
         var configuration = new Configuration().addAnnotatedClass(JpaWorkOrderEntity.class)
+                .addAnnotatedClass(JpaWorkOrderEquipmentEntity.class)
                 .setProperty("hibernate.connection.url", "jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=PostgreSQL")
                 .setProperty("hibernate.hbm2ddl.auto", "create-drop");
         try(var factory = configuration.buildSessionFactory(); var em = factory.createEntityManager()) {
@@ -48,6 +49,34 @@ class JpaWorkOrderPersistenceTest {
             assertEquals(4,adapter.findAllByReceivedAtDescending().size());
         }
     }
+    @Test void roundTripsMultipleEquipmentsWithOptionalFieldsAndStableOrder() {
+        var configuration = new Configuration().addAnnotatedClass(JpaWorkOrderEntity.class)
+                .addAnnotatedClass(JpaWorkOrderEquipmentEntity.class)
+                .setProperty("hibernate.connection.url", "jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=PostgreSQL")
+                .setProperty("hibernate.hbm2ddl.auto", "create-drop");
+        try(var factory = configuration.buildSessionFactory(); var em = factory.createEntityManager()) {
+            var adapter = new JpaWorkOrderRepositoryAdapter(new JpaRepositoryFactory(em).getRepository(SpringDataWorkOrderRepository.class));
+            var equipments = java.util.List.of(
+                    new WorkOrderEquipment(new EquipmentId(UUID.fromString("550e8400-e29b-41d4-a716-446655440012")),
+                            "Mademsa", "Vitality 11", null, null, null, 2),
+                    new WorkOrderEquipment(new EquipmentId(UUID.fromString("550e8400-e29b-41d4-a716-446655440011")),
+                            "Junkers", "WR10", "10 L", "SN-100", "Equipo principal", 1));
+            var order = new WorkOrder(new WorkOrderId("ORDER-" + UUID.randomUUID().toString().toUpperCase()),
+                    "Maria", new CustomerContact("+56911112222"), equipments, ServiceType.MAINTENANCE, null, Instant.now());
+
+            WorkOrder restored = roundTrip(adapter, em, order);
+
+            assertEquals(2, restored.equipments().size());
+            assertEquals(1, restored.equipments().get(0).position());
+            assertEquals("Junkers", restored.equipments().get(0).brand());
+            assertEquals("10 L", restored.equipments().get(0).capacity());
+            assertEquals("SN-100", restored.equipments().get(0).serialNumber());
+            assertEquals("Equipo principal", restored.equipments().get(0).notes());
+            assertEquals(2, restored.equipments().get(1).position());
+            assertEquals("Mademsa", restored.equipments().get(1).brand());
+        }
+    }
+
     private WorkOrder roundTrip(JpaWorkOrderRepositoryAdapter adapter, jakarta.persistence.EntityManager em, WorkOrder order) {
         em.getTransaction().begin(); adapter.save(order); em.getTransaction().commit(); em.clear();
         WorkOrder restored = adapter.findById(order.id()).orElseThrow();
@@ -55,6 +84,13 @@ class JpaWorkOrderPersistenceTest {
         assertEquals(order.reportedIssue(),restored.reportedIssue()); assertEquals(order.diagnosis(),restored.diagnosis());
         assertEquals(order.customerDecision(),restored.customerDecision()); assertEquals(order.lifecycleVersion(),restored.lifecycleVersion());
         assertEquals(order.legacyStatus(),restored.legacyStatus());
+        assertEquals(order.equipments().size(), restored.equipments().size());
+        for (int i = 0; i < order.equipments().size(); i++) {
+            assertEquals(order.equipments().get(i).id(), restored.equipments().get(i).id());
+            assertEquals(order.equipments().get(i).brand(), restored.equipments().get(i).brand());
+            assertEquals(order.equipments().get(i).model(), restored.equipments().get(i).model());
+            assertEquals(order.equipments().get(i).position(), restored.equipments().get(i).position());
+        }
         return restored;
     }
 }

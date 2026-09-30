@@ -8,6 +8,8 @@ import com.heaterworkshop.domain.entity.CustomerDecision;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
 import com.heaterworkshop.domain.valueobject.Diagnosis;
 import com.heaterworkshop.domain.valueobject.WorkOrderId;
+import com.heaterworkshop.domain.valueobject.EquipmentId;
+import com.heaterworkshop.domain.entity.WorkOrderEquipment;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.NullSource;
@@ -15,6 +17,7 @@ import org.mockito.ArgumentCaptor;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -42,6 +45,10 @@ class JpaWorkOrderRepositoryAdapterTest {
         assertEquals("Maria Gonzalez", saved.getCustomerName());
         assertEquals("Bosch", saved.getHeaterBrand());
         assertEquals("Therm 5700", saved.getHeaterModel());
+        assertEquals(1, saved.getEquipments().size());
+        assertEquals("Bosch", saved.getEquipments().get(0).getBrand());
+        assertEquals("Therm 5700", saved.getEquipments().get(0).getModel());
+        assertEquals(1, saved.getEquipments().get(0).getPosition());
         assertEquals(type, saved.getServiceType());
         assertEquals(type == ServiceType.REPAIR ? "Turns off" : "", saved.getReportedIssue());
         assertEquals(receivedAt, saved.getReceivedAt());
@@ -61,7 +68,10 @@ class JpaWorkOrderRepositoryAdapterTest {
                 WorkOrderStatus.COMPLETED, type == ServiceType.MAINTENANCE ? null : "Damaged ignition sensor", receivedAt, completedAt,
                 type == null ? LifecycleVersion.LEGACY : LifecycleVersion.V1,
                 type == null ? WorkOrderStatus.COMPLETED : null,
-                type == ServiceType.REPAIR ? CustomerDecision.APPROVED : null);
+                type == ServiceType.REPAIR ? CustomerDecision.APPROVED : null,
+                List.of(new JpaWorkOrderEquipmentEntity(
+                        UUID.fromString("550e8400-e29b-41d4-a716-446655440002"),
+                        "Bosch", "Therm 5700", "10 L", "SN-001", "Primary heater", 1)));
         when(springRepository.findAllByOrderByReceivedAtDesc()).thenReturn(List.of(entity));
 
         WorkOrder restored = adapter.findAllByReceivedAtDescending().get(0);
@@ -73,5 +83,11 @@ class JpaWorkOrderRepositoryAdapterTest {
         assertEquals(WorkOrderStatus.COMPLETED, restored.status());
         assertEquals(receivedAt, restored.receivedAt());
         assertEquals(completedAt, restored.completedAt());
+        assertEquals(1, restored.equipments().size());
+        assertEquals("Bosch", restored.equipments().get(0).brand());
+        assertEquals("Therm 5700", restored.equipments().get(0).model());
+        assertEquals("10 L", restored.equipments().get(0).capacity());
+        assertEquals("SN-001", restored.equipments().get(0).serialNumber());
+        assertEquals("Primary heater", restored.equipments().get(0).notes());
     }
 }

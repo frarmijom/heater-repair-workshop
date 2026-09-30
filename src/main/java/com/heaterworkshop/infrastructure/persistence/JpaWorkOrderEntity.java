@@ -7,6 +7,8 @@ import com.heaterworkshop.domain.entity.CustomerDecision;
 import jakarta.persistence.*;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "work_orders")
@@ -22,6 +24,11 @@ public class JpaWorkOrderEntity {
     private String heaterBrand;
     @Column(name = "heater_model", nullable = false, length = 120)
     private String heaterModel;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "work_order_id", nullable = false)
+    @OrderBy("position ASC")
+    private List<JpaWorkOrderEquipmentEntity> equipments = new ArrayList<>();
     @Enumerated(EnumType.STRING)
     @Column(name = "service_type", length = 32)
     private ServiceType serviceType;
@@ -53,7 +60,8 @@ public class JpaWorkOrderEntity {
                                 String heaterBrand, String heaterModel, ServiceType serviceType, String reportedIssue,
                                 WorkOrderStatus status, String diagnosis, Instant receivedAt,
                                 Instant completedAt, LifecycleVersion lifecycleVersion,
-                                WorkOrderStatus legacyStatus, CustomerDecision customerDecision) {
+                                WorkOrderStatus legacyStatus, CustomerDecision customerDecision,
+                                List<JpaWorkOrderEquipmentEntity> equipments) {
         this.id = id;
         this.customerName = customerName;
         this.customerContact = customerContact;
@@ -68,6 +76,7 @@ public class JpaWorkOrderEntity {
         this.lifecycleVersion = lifecycleVersion;
         this.legacyStatus = legacyStatus;
         this.customerDecision = customerDecision;
+        this.equipments = new ArrayList<>(equipments);
     }
 
     public LifecycleVersion getLifecycleVersion() { return lifecycleVersion; }
@@ -78,6 +87,7 @@ public class JpaWorkOrderEntity {
     public String getCustomerContact() { return customerContact; }
     public String getHeaterBrand() { return heaterBrand; }
     public String getHeaterModel() { return heaterModel; }
+    public List<JpaWorkOrderEquipmentEntity> getEquipments() { return List.copyOf(equipments); }
     public ServiceType getServiceType() { return serviceType; }
     public String getReportedIssue() { return reportedIssue; }
     public WorkOrderStatus getStatus() { return status; }

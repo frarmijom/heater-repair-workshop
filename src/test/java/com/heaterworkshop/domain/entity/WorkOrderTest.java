@@ -145,6 +145,58 @@ class WorkOrderTest {
         WorkOrder maintenance = at(ServiceType.MAINTENANCE,WorkOrderStatus.IN_PROGRESS);
         assertThrows(IllegalArgumentException.class, () -> restore(maintenance,LifecycleVersion.V1,null,CustomerDecision.APPROVED));
     }
+    @Test void ownsMultipleEquipmentsInStablePositionOrder() {
+        WorkOrderEquipment second = new WorkOrderEquipment(
+                new EquipmentId(java.util.UUID.fromString("550e8400-e29b-41d4-a716-446655440002")),
+                "Mademsa", "11L", null, null, null, 2);
+        WorkOrderEquipment first = new WorkOrderEquipment(
+                new EquipmentId(java.util.UUID.fromString("550e8400-e29b-41d4-a716-446655440001")),
+                "Junkers", "WR10", "10 L", null, null, 1);
+
+        WorkOrder order = new WorkOrder(ID, "Maria", new CustomerContact("+56911112222"),
+                java.util.List.of(second, first), ServiceType.MAINTENANCE, null, RECEIVED);
+
+        assertEquals(java.util.List.of(first, second), order.equipments());
+        assertThrows(UnsupportedOperationException.class, () -> order.equipments().add(first));
+    }
+
+    @Test void rejectsMissingEmptyNullOrDuplicatePositionEquipments() {
+        WorkOrderEquipment first = new WorkOrderEquipment(
+                new EquipmentId(java.util.UUID.fromString("550e8400-e29b-41d4-a716-446655440001")),
+                "Junkers", "WR10", null, null, null, 1);
+        WorkOrderEquipment duplicate = new WorkOrderEquipment(
+                new EquipmentId(java.util.UUID.fromString("550e8400-e29b-41d4-a716-446655440002")),
+                "Mademsa", "11L", null, null, null, 1);
+
+        assertThrows(NullPointerException.class, () -> new WorkOrder(ID, "Maria",
+                new CustomerContact("+56911112222"), (java.util.List<WorkOrderEquipment>) null,
+                ServiceType.MAINTENANCE, null, RECEIVED));
+        assertThrows(IllegalArgumentException.class, () -> new WorkOrder(ID, "Maria",
+                new CustomerContact("+56911112222"), java.util.List.of(),
+                ServiceType.MAINTENANCE, null, RECEIVED));
+        assertThrows(NullPointerException.class, () -> new WorkOrder(ID, "Maria",
+                new CustomerContact("+56911112222"), java.util.Arrays.asList(first, null),
+                ServiceType.MAINTENANCE, null, RECEIVED));
+        assertThrows(IllegalArgumentException.class, () -> new WorkOrder(ID, "Maria",
+                new CustomerContact("+56911112222"), java.util.List.of(first, duplicate),
+                ServiceType.MAINTENANCE, null, RECEIVED));
+    }
+
+    @Test void restoresMultipleEquipmentsWithoutLosingTheirIdentity() {
+        WorkOrderEquipment first = new WorkOrderEquipment(
+                new EquipmentId(java.util.UUID.fromString("550e8400-e29b-41d4-a716-446655440001")),
+                "Junkers", "WR10", null, "SN-1", null, 1);
+        WorkOrderEquipment second = new WorkOrderEquipment(
+                new EquipmentId(java.util.UUID.fromString("550e8400-e29b-41d4-a716-446655440002")),
+                "Mademsa", "11L", null, "SN-2", null, 2);
+
+        WorkOrder restored = WorkOrder.restore(ID, "Maria", new CustomerContact("+56911112222"),
+                java.util.List.of(first, second), ServiceType.MAINTENANCE, "", WorkOrderStatus.RECEIVED,
+                null, RECEIVED, null, LifecycleVersion.V1, null, null);
+
+        assertEquals(java.util.List.of(first, second), restored.equipments());
+    }
+
     private WorkOrder restore(WorkOrder order,LifecycleVersion version,WorkOrderStatus legacy,CustomerDecision decision) {
         return WorkOrder.restore(order.id(),order.customerName(),order.customerContact(),order.heaterBrand(),order.heaterModel(),
                 order.serviceType(),order.reportedIssue(),order.status(),order.diagnosis(),order.receivedAt(),order.completedAt(),version,legacy,decision);

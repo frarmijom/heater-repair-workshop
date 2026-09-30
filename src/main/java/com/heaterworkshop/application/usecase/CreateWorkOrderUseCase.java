@@ -1,6 +1,7 @@
 package com.heaterworkshop.application.usecase;
 
 import com.heaterworkshop.domain.entity.WorkOrder;
+import com.heaterworkshop.domain.entity.WorkOrderEquipment;
 import com.heaterworkshop.domain.entity.ServiceType;
 import com.heaterworkshop.domain.repository.WorkOrderRepository;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
@@ -8,6 +9,7 @@ import com.heaterworkshop.domain.valueobject.WorkOrderId;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -27,6 +29,16 @@ public final class CreateWorkOrderUseCase {
         this.uuidSupplier = uuidSupplier;
     }
 
+    public WorkOrder execute(String customerName, CustomerContact contact, List<WorkOrderEquipment> equipments,
+                             ServiceType serviceType, String reportedIssue) {
+        String id = "ORDER-" + uuidSupplier.get().toString().toUpperCase(Locale.ROOT);
+        WorkOrder order = new WorkOrder(new WorkOrderId(id), customerName, contact,
+                equipments, serviceType, reportedIssue, Instant.now(clock));
+        repository.save(order);
+        return order;
+    }
+
+    /** Transitional overload for callers that still submit one legacy heater. */
     public WorkOrder execute(String customerName, CustomerContact contact, String heaterBrand,
                                String heaterModel, ServiceType serviceType, String reportedIssue) {
         String id = "ORDER-" + uuidSupplier.get().toString().toUpperCase(Locale.ROOT);

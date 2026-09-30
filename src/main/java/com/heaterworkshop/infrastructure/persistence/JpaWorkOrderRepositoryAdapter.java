@@ -1,10 +1,12 @@
 package com.heaterworkshop.infrastructure.persistence;
 
 import com.heaterworkshop.domain.entity.WorkOrder;
+import com.heaterworkshop.domain.entity.WorkOrderEquipment;
 import com.heaterworkshop.domain.entity.ServiceType;
 import com.heaterworkshop.domain.repository.WorkOrderRepository;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
 import com.heaterworkshop.domain.valueobject.Diagnosis;
+import com.heaterworkshop.domain.valueobject.EquipmentId;
 import com.heaterworkshop.domain.valueobject.WorkOrderId;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Repository;
@@ -42,13 +44,14 @@ public class JpaWorkOrderRepositoryAdapter implements WorkOrderRepository {
                 order.customerContact().value(), order.heaterBrand(), order.heaterModel(),
                 order.serviceType(), order.reportedIssue(), order.status(),
                 order.diagnosis() == null ? null : order.diagnosis().value(),
-                order.receivedAt(), order.completedAt(), order.lifecycleVersion(), order.legacyStatus(), order.customerDecision());
+                order.receivedAt(), order.completedAt(), order.lifecycleVersion(), order.legacyStatus(), order.customerDecision(),
+                order.equipments().stream().map(this::toEquipmentEntity).toList());
     }
 
     private WorkOrder toDomain(JpaWorkOrderEntity entity) {
         return WorkOrder.restore(new WorkOrderId(entity.getId()), entity.getCustomerName(),
-                new CustomerContact(entity.getCustomerContact()), entity.getHeaterBrand(),
-                entity.getHeaterModel(),
+                new CustomerContact(entity.getCustomerContact()),
+                entity.getEquipments().stream().map(this::toEquipmentDomain).toList(),
                 // Only persisted historical rows may omit the service type.
                 entity.getServiceType() == null && entity.getLifecycleVersion() == com.heaterworkshop.domain.entity.LifecycleVersion.LEGACY
                         ? ServiceType.REPAIR : entity.getServiceType(),
@@ -56,5 +59,15 @@ public class JpaWorkOrderRepositoryAdapter implements WorkOrderRepository {
                 entity.getDiagnosis() == null ? null : new Diagnosis(entity.getDiagnosis()),
                 entity.getReceivedAt(), entity.getCompletedAt(), entity.getLifecycleVersion(),
                 entity.getLegacyStatus(), entity.getCustomerDecision());
+    }
+
+    private JpaWorkOrderEquipmentEntity toEquipmentEntity(WorkOrderEquipment equipment) {
+        return new JpaWorkOrderEquipmentEntity(equipment.id().value(), equipment.brand(), equipment.model(),
+                equipment.capacity(), equipment.serialNumber(), equipment.notes(), equipment.position());
+    }
+
+    private WorkOrderEquipment toEquipmentDomain(JpaWorkOrderEquipmentEntity entity) {
+        return new WorkOrderEquipment(new EquipmentId(entity.getId()), entity.getBrand(), entity.getModel(),
+                entity.getCapacity(), entity.getSerialNumber(), entity.getNotes(), entity.getPosition());
     }
 }

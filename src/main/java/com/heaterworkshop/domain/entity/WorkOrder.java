@@ -3,18 +3,25 @@ package com.heaterworkshop.domain.entity;
 import com.heaterworkshop.domain.exception.InvalidWorkOrderStateException;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
 import com.heaterworkshop.domain.valueobject.Diagnosis;
+import com.heaterworkshop.domain.valueobject.EquipmentId;
 import com.heaterworkshop.domain.valueobject.WorkOrderId;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 
 public final class WorkOrder {
 
     private final WorkOrderId id;
     private final String customerName;
     private final CustomerContact customerContact;
-    private final String heaterBrand;
-    private final String heaterModel;
+    private final List<WorkOrderEquipment> equipments;
     private final ServiceType serviceType;
     private final String reportedIssue;
     private final Instant receivedAt;
@@ -26,13 +33,12 @@ public final class WorkOrder {
     private CustomerDecision customerDecision;
 
     public WorkOrder(WorkOrderId id, String customerName, CustomerContact customerContact,
-                       String heaterBrand, String heaterModel, ServiceType serviceType, String reportedIssue,
+                       List<WorkOrderEquipment> equipments, ServiceType serviceType, String reportedIssue,
                        Instant receivedAt) {
         this.id = Objects.requireNonNull(id, "Work order id is required.");
         this.customerName = requiredText(customerName, "Customer name");
         this.customerContact = Objects.requireNonNull(customerContact, "Customer contact is required.");
-        this.heaterBrand = requiredText(heaterBrand, "Heater brand");
-        this.heaterModel = requiredText(heaterModel, "Heater model");
+        this.equipments = validateEquipments(equipments);
         this.serviceType = Objects.requireNonNull(serviceType, "Service type is required.");
         this.reportedIssue = serviceType == ServiceType.REPAIR
                 ? requiredText(reportedIssue, "Reported issue")
@@ -41,14 +47,26 @@ public final class WorkOrder {
         this.status = WorkOrderStatus.RECEIVED;
     }
 
+    /**
+     * Transitional compatibility constructor for the single-equipment API/persistence model.
+     * It will be removed once I1 migrates all callers to the equipment collection.
+     */
+    public WorkOrder(WorkOrderId id, String customerName, CustomerContact customerContact,
+                     String heaterBrand, String heaterModel, ServiceType serviceType, String reportedIssue,
+                     Instant receivedAt) {
+        this(id, customerName, customerContact,
+                List.of(legacyEquipment(id, heaterBrand, heaterModel)),
+                serviceType, reportedIssue, receivedAt);
+    }
+
     public static WorkOrder restore(WorkOrderId id, String customerName,
-                                      CustomerContact customerContact, String heaterBrand,
-                                      String heaterModel, ServiceType serviceType, String reportedIssue,
-                                      WorkOrderStatus status, Diagnosis diagnosis,
-                                      Instant receivedAt, Instant completedAt, LifecycleVersion lifecycleVersion,
-                                      WorkOrderStatus legacyStatus, CustomerDecision customerDecision) {
-        WorkOrder order = new WorkOrder(id, customerName, customerContact, heaterBrand,
-                heaterModel, serviceType, reportedIssue, receivedAt);
+                                    CustomerContact customerContact, List<WorkOrderEquipment> equipments,
+                                    ServiceType serviceType, String reportedIssue,
+                                    WorkOrderStatus status, Diagnosis diagnosis,
+                                    Instant receivedAt, Instant completedAt, LifecycleVersion lifecycleVersion,
+                                    WorkOrderStatus legacyStatus, CustomerDecision customerDecision) {
+        WorkOrder order = new WorkOrder(id, customerName, customerContact, equipments,
+                serviceType, reportedIssue, receivedAt);
         order.status = Objects.requireNonNull(status, "Work order status is required.");
         order.diagnosis = diagnosis;
         order.completedAt = completedAt;
@@ -57,6 +75,19 @@ public final class WorkOrder {
         order.customerDecision = customerDecision;
         order.validateRestoredState();
         return order;
+    }
+
+    /** Transitional restore overload for rows that still store heater_brand/heater_model on work_orders. */
+    public static WorkOrder restore(WorkOrderId id, String customerName,
+                                    CustomerContact customerContact, String heaterBrand,
+                                    String heaterModel, ServiceType serviceType, String reportedIssue,
+                                    WorkOrderStatus status, Diagnosis diagnosis,
+                                    Instant receivedAt, Instant completedAt, LifecycleVersion lifecycleVersion,
+                                    WorkOrderStatus legacyStatus, CustomerDecision customerDecision) {
+        return restore(id, customerName, customerContact,
+                List.of(legacyEquipment(id, heaterBrand, heaterModel)),
+                serviceType, reportedIssue, status, diagnosis, receivedAt, completedAt,
+                lifecycleVersion, legacyStatus, customerDecision);
     }
 
     private boolean legacyWorkAlreadyStarted() {
@@ -102,6 +133,31 @@ public final class WorkOrder {
             default -> null;
         };
         if (customerDecision != required) throw new IllegalArgumentException("Invalid customer decision for state.");
+    }
+
+    private static List<WorkOrderEquipment> validateEquipments(List<WorkOrderEquipment> equipments) {
+        Objects.requireNonNull(equipments, "Work order equipments are required.");
+        if (equipments.isEmpty()) {
+            throw new IllegalArgumentException("Work order must contain at least one equipment.");
+        }
+        List<WorkOrderEquipment> copy = new ArrayList<>(equipments.size());
+        Set<Integer> positions = new HashSet<>();
+        for (WorkOrderEquipment equipment : equipments) {
+            WorkOrderEquipment value = Objects.requireNonNull(equipment, "Work order equipment is required.");
+            if (!positions.add(value.position())) {
+                throw new IllegalArgumentException("Equipment positions must be unique within a work order.");
+            }
+            copy.add(value);
+        }
+        copy.sort(Comparator.comparingInt(WorkOrderEquipment::position));
+        return List.copyOf(copy);
+    }
+
+    private static WorkOrderEquipment legacyEquipment(WorkOrderId workOrderId, String brand, String model) {
+        Objects.requireNonNull(workOrderId, "Work order id is required.");
+        UUID equipmentUuid = UUID.nameUUIDFromBytes(
+                ("work-order-equipment:" + workOrderId.value()).getBytes(StandardCharsets.UTF_8));
+        return new WorkOrderEquipment(new EquipmentId(equipmentUuid), brand, model, null, null, null, 1);
     }
 
     private static String requiredText(String value, String fieldName) {
@@ -200,9 +256,13 @@ public final class WorkOrder {
 
     public String customerName() { return customerName; }
 
-    public String heaterBrand() { return heaterBrand; }
+    public List<WorkOrderEquipment> equipments() { return equipments; }
 
-    public String heaterModel() { return heaterModel; }
+    /** Transitional projection for callers that still assume a single equipment. */
+    public String heaterBrand() { return equipments.get(0).brand(); }
+
+    /** Transitional projection for callers that still assume a single equipment. */
+    public String heaterModel() { return equipments.get(0).model(); }
 
     public ServiceType serviceType() { return serviceType; }
 

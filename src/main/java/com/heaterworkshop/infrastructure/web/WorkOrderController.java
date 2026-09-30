@@ -2,8 +2,10 @@ package com.heaterworkshop.infrastructure.web;
 
 import com.heaterworkshop.application.usecase.*;
 import com.heaterworkshop.domain.entity.WorkOrder;
+import com.heaterworkshop.domain.entity.WorkOrderEquipment;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
 import com.heaterworkshop.domain.valueobject.Diagnosis;
+import com.heaterworkshop.domain.valueobject.EquipmentId;
 import com.heaterworkshop.domain.valueobject.WorkOrderId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -12,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/work-orders")
@@ -34,9 +37,17 @@ public class WorkOrderController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a received work order")
     public WorkOrderResponse create(@Valid @RequestBody CreateWorkOrderRequest request) {
-        return WorkOrderResponse.from(create.execute(request.customerName(),
-                new CustomerContact(request.customerContact()), request.heaterBrand(),
-                request.heaterModel(), request.serviceType(), request.reportedIssue()));
+        if (request.equipments() != null && !request.equipments().isEmpty()) {
+            return WorkOrderResponse.from(create.execute(request.customerName(), new CustomerContact(request.customerContact()),
+                    toEquipments(request.equipments()), request.serviceType(), request.reportedIssue()));
+        }
+        return WorkOrderResponse.from(create.execute(request.customerName(), new CustomerContact(request.customerContact()),
+                request.heaterBrand(), request.heaterModel(), request.serviceType(), request.reportedIssue()));
+    }
+
+    private List<WorkOrderEquipment> toEquipments(List<WorkOrderEquipmentRequest> requests) {
+        return requests.stream().map(request -> new WorkOrderEquipment(new EquipmentId(UUID.randomUUID()),
+                request.brand(), request.model(), request.capacity(), request.serialNumber(), request.notes(), request.position())).toList();
     }
 
     @GetMapping

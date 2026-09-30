@@ -159,6 +159,34 @@ class WorkOrderControllerTest {
                 .andExpect(jsonPath("$.path").value("/route-that-does-not-exist"));
     }
 
+    @Test
+    void createsAndReturnsMultipleEquipments() throws Exception {
+        mockMvc.perform(post("/api/work-orders").contentType(MediaType.APPLICATION_JSON).content("""
+                {"customerName":"Juan Pérez","customerContact":"+56912345678",
+                 "equipments":[
+                   {"brand":"Junkers","model":"WR11","capacity":"11 L","serialNumber":"SN-1","notes":"Principal","position":1},
+                   {"brand":"Mademsa","model":"Vitality","capacity":"10 L","position":2}],
+                 "serviceType":"MAINTENANCE"}
+                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.equipments.length()").value(2))
+                .andExpect(jsonPath("$.equipments[0].brand").value("Junkers"))
+                .andExpect(jsonPath("$.equipments[0].serialNumber").value("SN-1"))
+                .andExpect(jsonPath("$.equipments[0].position").value(1))
+                .andExpect(jsonPath("$.equipments[1].brand").value("Mademsa"))
+                .andExpect(jsonPath("$.equipments[1].position").value(2));
+    }
+
+    @Test
+    void rejectsInvalidEquipmentInMultiEquipmentRequest() throws Exception {
+        mockMvc.perform(post("/api/work-orders").contentType(MediaType.APPLICATION_JSON).content("""
+                {"customerName":"Juan Pérez","customerContact":"+56912345678",
+                 "equipments":[{"brand":"","model":"WR11","position":0}],"serviceType":"MAINTENANCE"}
+                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Request validation failed."));
+    }
+
     private String extractId(String json) {
         Matcher matcher = Pattern.compile("\\\"id\\\":\\\"([^\\\"]+)\\\"").matcher(json);
         if (!matcher.find()) {

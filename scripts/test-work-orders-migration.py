@@ -58,7 +58,7 @@ try:
     sql("UPDATE work_orders SET status='WAITING_CUSTOMER',diagnosis='Recorded' WHERE status='DIAGNOSIS'")
     sql("UPDATE work_orders SET status='NOT_APPROVED',customer_decision='REJECTED' WHERE status='WAITING_CUSTOMER'")
     sql("CREATE SCHEMA fresh; SET search_path TO fresh;" + (root/'db/schema-v1.sql').read_text())
-    assert sql("SELECT count(*) FROM information_schema.tables WHERE table_schema='fresh'").stdout.strip() == '2'
+    assert sql("SELECT count(*) FROM information_schema.tables WHERE table_schema='fresh'").stdout.strip() == '3'
     # A collision must roll back and leave both existing tables intact.
     sql("CREATE SCHEMA collision; CREATE TABLE collision.repair_orders (id int); CREATE TABLE collision.work_orders (id int);")
     result = sql("SET search_path TO collision;" + (root/'db/work-orders-v1.sql').read_text(),check=False)
