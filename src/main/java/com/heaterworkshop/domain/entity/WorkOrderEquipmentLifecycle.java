@@ -36,6 +36,27 @@ public final class WorkOrderEquipmentLifecycle {
         return new WorkOrderEquipmentLifecycle(intakeRoute, reportedIssue, receivedAt);
     }
 
+    public static WorkOrderEquipmentLifecycle restore(
+            EquipmentIntakeRoute intakeRoute,
+            String reportedIssue,
+            Instant receivedAt,
+            WorkOrderStatus status,
+            Diagnosis diagnosis,
+            CustomerDecision customerDecision,
+            Instant completedAt) {
+
+        WorkOrderEquipmentLifecycle lifecycle =
+                new WorkOrderEquipmentLifecycle(intakeRoute, reportedIssue, receivedAt);
+
+        lifecycle.status = Objects.requireNonNull(status, "Equipment lifecycle status is required.");
+        lifecycle.diagnosis = diagnosis;
+        lifecycle.customerDecision = customerDecision;
+        lifecycle.completedAt = completedAt;
+        lifecycle.validateRestoredState();
+
+        return lifecycle;
+    }
+
     public void beginDiagnosis() {
         requireRoute(EquipmentIntakeRoute.DIAGNOSIS_REQUIRED);
         requireStatus(WorkOrderStatus.RECEIVED);
@@ -103,6 +124,70 @@ public final class WorkOrderEquipmentLifecycle {
     public Diagnosis diagnosis() { return diagnosis; }
     public CustomerDecision customerDecision() { return customerDecision; }
     public Instant completedAt() { return completedAt; }
+
+    private void validateRestoredState() {
+        if (completedAt != null && completedAt.isBefore(receivedAt)) {
+            throw new IllegalArgumentException("Completion timestamp cannot be before reception.");
+        }
+
+        if (intakeRoute == EquipmentIntakeRoute.DIRECT_SERVICE) {
+            if (diagnosis != null || customerDecision != null) {
+                throw new IllegalArgumentException(
+                        "Direct-service equipment cannot contain diagnosis or customer decision.");
+            }
+
+            if (status == WorkOrderStatus.DIAGNOSIS
+                    || status == WorkOrderStatus.WAITING_CUSTOMER
+                    || status == WorkOrderStatus.NOT_APPROVED) {
+                throw new IllegalArgumentException(
+                        "Direct-service equipment has an invalid lifecycle status.");
+            }
+        }
+
+        if (intakeRoute == EquipmentIntakeRoute.DIAGNOSIS_REQUIRED) {
+            if ((status == WorkOrderStatus.RECEIVED
+                    || status == WorkOrderStatus.DIAGNOSIS
+                    || status == WorkOrderStatus.WAITING_CUSTOMER)
+                    && customerDecision != null) {
+                throw new IllegalArgumentException(
+                        "Customer decision is not valid before diagnosis approval.");
+            }
+
+            if ((status == WorkOrderStatus.WAITING_CUSTOMER
+                    || status == WorkOrderStatus.WAITING_PARTS
+                    || status == WorkOrderStatus.IN_PROGRESS
+                    || status == WorkOrderStatus.COMPLETED
+                    || status == WorkOrderStatus.NOT_APPROVED)
+                    && diagnosis == null) {
+                throw new IllegalArgumentException(
+                        "Diagnosis is required for the restored equipment state.");
+            }
+
+            if ((status == WorkOrderStatus.WAITING_PARTS
+                    || status == WorkOrderStatus.IN_PROGRESS
+                    || status == WorkOrderStatus.COMPLETED)
+                    && customerDecision != CustomerDecision.APPROVED) {
+                throw new IllegalArgumentException(
+                        "Customer approval is required for the restored equipment state.");
+            }
+
+            if (status == WorkOrderStatus.NOT_APPROVED
+                    && customerDecision != CustomerDecision.REJECTED) {
+                throw new IllegalArgumentException(
+                        "Customer rejection is required for NOT_APPROVED equipment.");
+            }
+        }
+
+        if (status == WorkOrderStatus.COMPLETED && completedAt == null) {
+            throw new IllegalArgumentException(
+                    "Completion timestamp is required for completed equipment.");
+        }
+
+        if (status != WorkOrderStatus.COMPLETED && completedAt != null) {
+            throw new IllegalArgumentException(
+                    "Completion timestamp is only valid for completed equipment.");
+        }
+    }
 
     private void requireRoute(EquipmentIntakeRoute expected) {
         if (intakeRoute != expected) {
