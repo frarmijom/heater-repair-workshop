@@ -41,9 +41,12 @@ public record InventoryMovement(UUID id, UUID itemId, InventoryMovementType type
         itemNameSnapshot = CatalogText.required(itemNameSnapshot, 160);
         unitNameSnapshot = CatalogText.required(unitNameSnapshot, 120);
         unitSymbolSnapshot = CatalogText.required(unitSymbolSnapshot, 16);
-        if ((type == InventoryMovementType.INITIAL_ENTRY || type == InventoryMovementType.ENTRY)
+        if ((type == InventoryMovementType.INITIAL_ENTRY
+                || type == InventoryMovementType.ENTRY
+                || type == InventoryMovementType.KIT_ASSEMBLY_PRODUCTION)
                 && direction != InventoryMovementDirection.INCREASE
-                || type == InventoryMovementType.WORK_ORDER_CONSUMPTION
+                || (type == InventoryMovementType.WORK_ORDER_CONSUMPTION
+                || type == InventoryMovementType.KIT_ASSEMBLY_CONSUMPTION)
                 && direction != InventoryMovementDirection.DECREASE) {
             throw new IllegalArgumentException("La dirección no coincide con el tipo de movimiento.");
         }

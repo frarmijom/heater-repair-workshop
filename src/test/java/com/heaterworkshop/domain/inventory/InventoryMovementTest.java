@@ -49,6 +49,8 @@ class InventoryMovementTest {
         assertTrue(InventoryMovementType.ENTRY.isReversible());
         assertTrue(InventoryMovementType.ADJUSTMENT.isReversible());
         assertFalse(InventoryMovementType.WORK_ORDER_CONSUMPTION.isReversible());
+        assertFalse(InventoryMovementType.KIT_ASSEMBLY_CONSUMPTION.isReversible());
+        assertFalse(InventoryMovementType.KIT_ASSEMBLY_PRODUCTION.isReversible());
         assertFalse(InventoryMovementType.REVERSAL.isReversible());
     }
 

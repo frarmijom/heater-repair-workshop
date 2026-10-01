@@ -79,7 +79,7 @@ public record InventoryItem(UUID id, String sku, String name, String description
         if (!allowsDecimal && movement.quantity().stripTrailingZeros().scale() > 0) {
             throw new IllegalArgumentException("La unidad no admite cantidades fraccionarias.");
         }
-        return InventoryItem.restore(id, sku, name, description, categoryId, unitId,
+        return InventoryItem.restore(id, sku, name, description, categoryId, unitId, itemType,
                 movement.stockAfter(), stockMinimum, movement.type() == InventoryMovementType.ENTRY ? movement.unitCostSnapshot() : referenceUnitCost, active,
                 Math.addExact(version, 1), createdAt, Instant.now().truncatedTo(ChronoUnit.MICROS));
     }
