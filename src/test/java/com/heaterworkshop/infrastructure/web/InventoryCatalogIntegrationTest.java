@@ -211,6 +211,44 @@ class InventoryCatalogIntegrationTest {
         assertEquals(0,movements.count());
     }
 
+    @Test void assemblesKitThroughHttpAndKeepsFailureAtomic() throws Exception {
+        String token=authenticate();
+        String categoryId=field(call("POST","/api/inventory/categories","{\"name\":\"Assembly\"}",token).body(),"id");
+        String unitId=field(call("POST","/api/inventory/units","{\"name\":\"Unidad\",\"symbol\":\"un\",\"allowsDecimal\":false}",token).body(),"id");
+        String component=field(call("POST","/api/inventory/items","{\"sku\":\"ASM-COMP\",\"name\":\"Componente\",\"categoryId\":\""+categoryId+"\",\"unitId\":\""+unitId+"\",\"initialStock\":10,\"requestId\":\"asm-comp-create\"}",token).body(),"id");
+        String kit=field(call("POST","/api/inventory/items","{\"sku\":\"ASM-KIT\",\"name\":\"Kit\",\"categoryId\":\""+categoryId+"\",\"unitId\":\""+unitId+"\",\"itemType\":\"KIT\",\"initialStock\":0,\"requestId\":\"asm-kit-create\"}",token).body(),"id");
+
+        assertEquals(200,call("PUT","/api/inventory/items/"+kit+"/bom",
+                "{\"components\":[{\"componentItemId\":\""+component+"\",\"quantity\":2}]}",token).statusCode());
+
+        var assembled=call("POST","/api/inventory/items/"+kit+"/assemblies",
+                "{\"quantity\":3,\"requestId\":\"assembly-http-1\",\"reason\":\"Preparar kits\"}",token);
+        assertEquals(201,assembled.statusCode(),assembled.body());
+        assertTrue(assembled.body().contains("\"assemblyId\":"));
+        assertTrue(assembled.body().contains("\"type\":\"KIT_ASSEMBLY_CONSUMPTION\""));
+        assertTrue(assembled.body().contains("\"type\":\"KIT_ASSEMBLY_PRODUCTION\""));
+
+        var componentAfter=call("GET","/api/inventory/items/"+component,null,null);
+        var kitAfter=call("GET","/api/inventory/items/"+kit,null,null);
+        assertTrue(componentAfter.body().contains("\"stockCurrent\":4.000"),componentAfter.body());
+        assertTrue(kitAfter.body().contains("\"stockCurrent\":3.000"),kitAfter.body());
+        assertTrue(kitAfter.body().contains("\"itemType\":\"KIT\""),kitAfter.body());
+
+        long movementsAfterSuccess=movements.count();
+
+        var rejected=call("POST","/api/inventory/items/"+kit+"/assemblies",
+                "{\"quantity\":3,\"requestId\":\"assembly-http-2\",\"reason\":\"Sin stock\"}",token);
+        assertEquals(409,rejected.statusCode(),rejected.body());
+        assertTrue(call("GET","/api/inventory/items/"+component,null,null).body().contains("\"stockCurrent\":4.000"));
+        assertTrue(call("GET","/api/inventory/items/"+kit,null,null).body().contains("\"stockCurrent\":3.000"));
+        assertEquals(movementsAfterSuccess,movements.count());
+
+        assertEquals(409,call("POST","/api/inventory/items/"+component+"/assemblies",
+                "{\"quantity\":1,\"requestId\":\"assembly-standard\",\"reason\":\"No corresponde\"}",token).statusCode());
+        assertEquals(400,call("POST","/api/inventory/items/"+kit+"/assemblies",
+                "{\"quantity\":1,\"requestId\":\"assembly-extra\",\"reason\":\"Inválido\",\"stock\":99}",token).statusCode());
+    }
+
     @Test void zeroStockCreationHasNoMovementAndCanCorrectUnitBeforeHistory() throws Exception {
         String token=authenticate();
         String categoryId=field(call("POST","/api/inventory/categories","{\"name\":\"Consumibles\"}",token).body(),"id");

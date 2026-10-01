@@ -6,6 +6,7 @@ import com.heaterworkshop.application.inventory.InventoryItemUseCases;
 import com.heaterworkshop.application.inventory.InventoryReceiptUseCases;
 import com.heaterworkshop.application.inventory.InventoryReversalUseCases;
 import com.heaterworkshop.application.inventory.InventoryKitUseCases;
+import com.heaterworkshop.application.inventory.InventoryKitAssemblyUseCases;
 import com.heaterworkshop.domain.inventory.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,7 @@ public class InventoryItemController {
             "stockMinimum", "referenceUnitCost", "initialStock", "itemType", "requestId");
     private static final Set<String> BOM_FIELDS = Set.of("components");
     private static final Set<String> BOM_COMPONENT_FIELDS = Set.of("componentItemId", "quantity");
+    private static final Set<String> ASSEMBLY_FIELDS = Set.of("requestId", "quantity", "reason");
     private static final Set<String> RECEIPT_FIELDS = Set.of("requestId", "quantity", "unitCost", "reason");
     private static final Set<String> ADJUSTMENT_FIELDS = Set.of("requestId", "direction", "quantity", "reason");
     private static final Set<String> REVERSAL_FIELDS = Set.of("requestId", "reason");
@@ -38,11 +40,13 @@ public class InventoryItemController {
     private final InventoryAdjustmentUseCases adjustments;
     private final InventoryReversalUseCases reversals;
     private final InventoryKitUseCases kits;
+    private final InventoryKitAssemblyUseCases assemblies;
 
     public InventoryItemController(InventoryItemUseCases items, InventoryCategoryRepository categories,
                                    UnitOfMeasureRepository units, InventoryMovementRepository movements,
                                    InventoryReceiptUseCases receipts, InventoryAdjustmentUseCases adjustments,
-                                   InventoryReversalUseCases reversals, InventoryKitUseCases kits) {
+                                   InventoryReversalUseCases reversals, InventoryKitUseCases kits,
+                                   InventoryKitAssemblyUseCases assemblies) {
         this.items = items;
         this.categories = categories;
         this.units = units;
@@ -51,6 +55,7 @@ public class InventoryItemController {
         this.adjustments = adjustments;
         this.reversals = reversals;
         this.kits = kits;
+        this.assemblies = assemblies;
     }
 
     @GetMapping
@@ -102,6 +107,26 @@ public class InventoryItemController {
                     requiredDecimal(component.get("quantity"), "quantity")));
         }
         return InventoryKitBomResponse.from(kits.replace(id, inputs));
+    }
+
+    @PostMapping("/{id}/assemblies")
+    public ResponseEntity<InventoryKitAssemblyResponse> assemble(@PathVariable UUID id,
+                                                                 @RequestBody JsonNode body,
+                                                                 Authentication authentication) {
+        validateObject(body, ASSEMBLY_FIELDS, true);
+        var result = assemblies.assemble(
+                id,
+                requiredDecimal(body.get("quantity"), "quantity"),
+                text(body, "requestId", true),
+                authentication.getName(),
+                text(body, "reason", true));
+        InventoryItem kit = result.kit();
+        var kitResponse = response(
+                kit,
+                categories.findById(kit.categoryId()).orElseThrow(CatalogNotFoundException::new),
+                units.findById(kit.unitId()).orElseThrow(CatalogNotFoundException::new));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(InventoryKitAssemblyResponse.from(result, kitResponse));
     }
 
     @PostMapping("/{id}/receipts")
