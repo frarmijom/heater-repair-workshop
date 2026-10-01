@@ -1,6 +1,8 @@
 package com.heaterworkshop.infrastructure.web;
 
 import com.heaterworkshop.application.usecase.*;
+import com.heaterworkshop.application.service.WorkOrderEquipmentServiceUseCases;
+import tools.jackson.databind.JsonNode;
 import com.heaterworkshop.domain.entity.WorkOrder;
 import com.heaterworkshop.domain.entity.WorkOrderEquipment;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
@@ -26,11 +28,14 @@ public class WorkOrderController {
     private final StartWorkUseCase start;
     private final CompleteWorkUseCase complete;
     private final WorkOrderWorkflowUseCase workflow;
+    private final WorkOrderEquipmentServiceUseCases equipmentServices;
 
     public WorkOrderController(CreateWorkOrderUseCase create, ListWorkOrdersUseCase list,
                                  GetWorkOrderUseCase get,
-                                 StartWorkUseCase start, CompleteWorkUseCase complete, WorkOrderWorkflowUseCase workflow) {
+                                 StartWorkUseCase start, CompleteWorkUseCase complete, WorkOrderWorkflowUseCase workflow,
+                                  WorkOrderEquipmentServiceUseCases equipmentServices) {
         this.create = create; this.list = list; this.get = get; this.start = start; this.complete = complete; this.workflow = workflow;
+        this.equipmentServices = equipmentServices;
     }
 
     @PostMapping
@@ -60,6 +65,40 @@ public class WorkOrderController {
     @Operation(summary = "Get a work order")
     public WorkOrderResponse get(@PathVariable String id) {
         return WorkOrderResponse.from(get.execute(new WorkOrderId(id)));
+    }
+
+    @GetMapping("/{id}/equipments/{equipmentId}/services")
+    public List<WorkOrderEquipmentServiceResponse> equipmentServices(
+            @PathVariable String id, @PathVariable UUID equipmentId) {
+        return equipmentServices.get(new WorkOrderId(id), new EquipmentId(equipmentId)).stream()
+                .map(WorkOrderEquipmentServiceResponse::from)
+                .toList();
+    }
+
+    @PutMapping("/{id}/equipments/{equipmentId}/services")
+    public List<WorkOrderEquipmentServiceResponse> replaceEquipmentServices(
+            @PathVariable String id, @PathVariable UUID equipmentId, @RequestBody JsonNode body) {
+        if (body == null || !body.isObject() || body.size() != 1 || !body.has("serviceIds")) {
+            throw new IllegalArgumentException("Se esperaba un objeto con serviceIds.");
+        }
+        JsonNode nodes = body.get("serviceIds");
+        if (!nodes.isArray()) {
+            throw new IllegalArgumentException("serviceIds debe ser un arreglo.");
+        }
+        List<UUID> serviceIds = new java.util.ArrayList<>();
+        for (JsonNode node : nodes) {
+            if (!node.isTextual()) {
+                throw new IllegalArgumentException("Cada serviceId debe ser un UUID válido.");
+            }
+            try {
+                serviceIds.add(UUID.fromString(node.textValue()));
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException("Cada serviceId debe ser un UUID válido.");
+            }
+        }
+        return equipmentServices.replace(new WorkOrderId(id), new EquipmentId(equipmentId), serviceIds).stream()
+                .map(WorkOrderEquipmentServiceResponse::from)
+                .toList();
     }
 
     @PatchMapping("/{id}/diagnosis/begin")

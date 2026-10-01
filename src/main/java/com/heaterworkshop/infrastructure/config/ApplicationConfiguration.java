@@ -24,6 +24,12 @@ public class ApplicationConfiguration {
     @Bean StartWorkUseCase startRepairUseCase(WorkOrderRepository r) { return new StartWorkUseCase(r); }
     @Bean CompleteWorkUseCase completeRepairUseCase(WorkOrderRepository r, CustomerNotifier n) { return new CompleteWorkUseCase(r, n); }
     @Bean WorkOrderWorkflowUseCase workOrderWorkflowUseCase(WorkOrderRepository r) { return new WorkOrderWorkflowUseCase(r); }
+    @Bean com.heaterworkshop.application.service.WorkOrderEquipmentServiceUseCases workOrderEquipmentServices(
+            WorkOrderRepository workOrders,
+            com.heaterworkshop.domain.service.ServiceCatalogRepository services,
+            com.heaterworkshop.domain.service.WorkOrderEquipmentServiceRepository assignments) {
+        return new com.heaterworkshop.application.service.WorkOrderEquipmentServiceUseCases(workOrders, services, assignments);
+    }
     @Bean CustomerNotifier customerNotifier() {
         return (destination, message) -> LOGGER.info("Notification to {}: {}", destination.value(), message);
     }

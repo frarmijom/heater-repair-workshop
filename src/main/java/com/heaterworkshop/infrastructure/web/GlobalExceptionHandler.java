@@ -3,6 +3,7 @@ package com.heaterworkshop.infrastructure.web;
 import com.heaterworkshop.domain.exception.InvalidDiagnosisException;
 import com.heaterworkshop.domain.exception.InvalidWorkOrderStateException;
 import com.heaterworkshop.domain.exception.WorkOrderNotFoundException;
+import com.heaterworkshop.domain.inventory.CatalogNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
@@ -23,7 +24,7 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.NOT_FOUND, "The requested resource was not found.", request, Map.of());
     }
 
-    @ExceptionHandler(WorkOrderNotFoundException.class)
+    @ExceptionHandler({WorkOrderNotFoundException.class, CatalogNotFoundException.class})
     ResponseEntity<ApiError> notFound(RuntimeException ex, HttpServletRequest request) {
         return response(HttpStatus.NOT_FOUND, ex.getMessage(), request, Map.of());
     }

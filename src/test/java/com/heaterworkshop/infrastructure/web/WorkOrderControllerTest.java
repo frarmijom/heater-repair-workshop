@@ -36,7 +36,8 @@ class WorkOrderControllerTest {
         WorkOrderController controller = new WorkOrderController(
                 new CreateWorkOrderUseCase(repository), new ListWorkOrdersUseCase(repository),
                 new GetWorkOrderUseCase(repository), new StartWorkUseCase(repository),
-                new CompleteWorkUseCase(repository, (destination, message) -> { }), new WorkOrderWorkflowUseCase(repository));
+                new CompleteWorkUseCase(repository, (destination, message) -> { }), new WorkOrderWorkflowUseCase(repository),
+                org.mockito.Mockito.mock(com.heaterworkshop.application.service.WorkOrderEquipmentServiceUseCases.class));
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
