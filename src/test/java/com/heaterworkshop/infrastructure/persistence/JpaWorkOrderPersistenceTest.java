@@ -77,6 +77,71 @@ class JpaWorkOrderPersistenceTest {
         }
     }
 
+    @Test
+    void roundTripsEquipmentLifecycleV2WithoutFabricatingHistoricalLifecycle() {
+        var configuration = new Configuration().addAnnotatedClass(JpaWorkOrderEntity.class)
+                .addAnnotatedClass(JpaWorkOrderEquipmentEntity.class)
+                .setProperty("hibernate.connection.url", "jdbc:h2:mem:" + UUID.randomUUID() + ";MODE=PostgreSQL")
+                .setProperty("hibernate.hbm2ddl.auto", "create-drop");
+
+        try (var factory = configuration.buildSessionFactory(); var em = factory.createEntityManager()) {
+            var adapter = new JpaWorkOrderRepositoryAdapter(
+                    new JpaRepositoryFactory(em).getRepository(SpringDataWorkOrderRepository.class));
+
+            Instant receivedAt = Instant.parse("2026-10-01T15:00:00Z");
+            Instant completedAt = Instant.parse("2026-10-01T17:00:00Z");
+
+            var lifecycle = WorkOrderEquipmentLifecycle.create(
+                    EquipmentIntakeRoute.DIAGNOSIS_REQUIRED,
+                    "No enciende",
+                    receivedAt);
+            lifecycle.beginDiagnosis();
+            lifecycle.recordDiagnosis(new Diagnosis("Sensor de encendido defectuoso"));
+            lifecycle.completeDiagnosis();
+            lifecycle.approve(true);
+            lifecycle.complete(completedAt);
+
+            var v2Equipment = new WorkOrderEquipment(
+                    new EquipmentId(UUID.fromString("550e8400-e29b-41d4-a716-446655440099")),
+                    EquipmentType.CALEFONT,
+                    "Junkers",
+                    "WR10",
+                    "10 L",
+                    "SN-V2-001",
+                    "Equipo V2",
+                    1,
+                    lifecycle);
+
+            var order = new WorkOrder(
+                    new WorkOrderId("ORDER-" + UUID.randomUUID().toString().toUpperCase()),
+                    "Maria",
+                    new CustomerContact("+56911112222"),
+                    java.util.List.of(v2Equipment),
+                    ServiceType.MAINTENANCE,
+                    null,
+                    receivedAt);
+
+            WorkOrder restored = roundTrip(adapter, em, order);
+
+            var restoredEquipment = restored.equipments().get(0);
+            assertEquals(EquipmentType.CALEFONT, restoredEquipment.type());
+            assertNotNull(restoredEquipment.lifecycle());
+            assertEquals(EquipmentIntakeRoute.DIAGNOSIS_REQUIRED,
+                    restoredEquipment.lifecycle().intakeRoute());
+            assertEquals(WorkOrderStatus.COMPLETED, restoredEquipment.lifecycle().status());
+            assertEquals("No enciende", restoredEquipment.lifecycle().reportedIssue());
+            assertEquals(new Diagnosis("Sensor de encendido defectuoso"),
+                    restoredEquipment.lifecycle().diagnosis());
+            assertEquals(CustomerDecision.APPROVED,
+                    restoredEquipment.lifecycle().customerDecision());
+            assertEquals(receivedAt, restoredEquipment.lifecycle().receivedAt());
+            assertEquals(completedAt, restoredEquipment.lifecycle().completedAt());
+
+            // Existing V1 aggregate semantics remain untouched.
+            assertEquals(LifecycleVersion.V1, restored.lifecycleVersion());
+        }
+    }
+
     private WorkOrder roundTrip(JpaWorkOrderRepositoryAdapter adapter, jakarta.persistence.EntityManager em, WorkOrder order) {
         em.getTransaction().begin(); adapter.save(order); em.getTransaction().commit(); em.clear();
         WorkOrder restored = adapter.findById(order.id()).orElseThrow();

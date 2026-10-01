@@ -62,12 +62,71 @@ public class JpaWorkOrderRepositoryAdapter implements WorkOrderRepository {
     }
 
     private JpaWorkOrderEquipmentEntity toEquipmentEntity(WorkOrderEquipment equipment) {
-        return new JpaWorkOrderEquipmentEntity(equipment.id().value(), equipment.brand(), equipment.model(),
-                equipment.capacity(), equipment.serialNumber(), equipment.notes(), equipment.position());
+        var lifecycle = equipment.lifecycle();
+
+        if (lifecycle == null) {
+            return new JpaWorkOrderEquipmentEntity(
+                    equipment.id().value(),
+                    equipment.brand(),
+                    equipment.model(),
+                    equipment.capacity(),
+                    equipment.serialNumber(),
+                    equipment.notes(),
+                    equipment.position());
+        }
+
+        return new JpaWorkOrderEquipmentEntity(
+                equipment.id().value(),
+                equipment.brand(),
+                equipment.model(),
+                equipment.capacity(),
+                equipment.serialNumber(),
+                equipment.notes(),
+                equipment.position(),
+                equipment.type(),
+                lifecycle.intakeRoute(),
+                lifecycle.status(),
+                lifecycle.reportedIssue(),
+                lifecycle.diagnosis() == null ? null : lifecycle.diagnosis().value(),
+                lifecycle.customerDecision(),
+                lifecycle.receivedAt(),
+                lifecycle.completedAt());
     }
 
     private WorkOrderEquipment toEquipmentDomain(JpaWorkOrderEquipmentEntity entity) {
-        return new WorkOrderEquipment(new EquipmentId(entity.getId()), entity.getBrand(), entity.getModel(),
-                entity.getCapacity(), entity.getSerialNumber(), entity.getNotes(), entity.getPosition());
+        if (entity.getIntakeRoute() == null) {
+            return new WorkOrderEquipment(
+                    new EquipmentId(entity.getId()),
+                    entity.getBrand(),
+                    entity.getModel(),
+                    entity.getCapacity(),
+                    entity.getSerialNumber(),
+                    entity.getNotes(),
+                    entity.getPosition());
+        }
+
+        var lifecycle = com.heaterworkshop.domain.entity.WorkOrderEquipmentLifecycle.restore(
+                entity.getIntakeRoute(),
+                entity.getReportedIssue(),
+                entity.getReceivedAt(),
+                entity.getLifecycleStatus(),
+                entity.getDiagnosis() == null ? null : new Diagnosis(entity.getDiagnosis()),
+                entity.getCustomerDecision(),
+                entity.getCompletedAt());
+
+        var equipmentType = entity.getEquipmentType() == null
+                ? com.heaterworkshop.domain.entity.EquipmentType.CALEFONT
+                : entity.getEquipmentType();
+
+        return new WorkOrderEquipment(
+                new EquipmentId(entity.getId()),
+                equipmentType,
+                entity.getBrand(),
+                entity.getModel(),
+                entity.getCapacity(),
+                entity.getSerialNumber(),
+                entity.getNotes(),
+                entity.getPosition(),
+                lifecycle);
     }
 }
