@@ -47,6 +47,40 @@ public final class WorkOrder {
         this.status = WorkOrderStatus.RECEIVED;
     }
 
+    private WorkOrder(WorkOrderId id, String customerName, CustomerContact customerContact,
+                      List<WorkOrderEquipment> equipments, Instant receivedAt,
+                      LifecycleVersion lifecycleVersion) {
+        this.id = Objects.requireNonNull(id, "Work order id is required.");
+        this.customerName = requiredText(customerName, "Customer name");
+        this.customerContact = Objects.requireNonNull(customerContact, "Customer contact is required.");
+        this.equipments = validateEquipments(equipments);
+        this.receivedAt = Objects.requireNonNull(receivedAt, "Received timestamp is required.");
+        this.lifecycleVersion = Objects.requireNonNull(lifecycleVersion, "Lifecycle version is required.");
+
+        if (lifecycleVersion != LifecycleVersion.V2) {
+            throw new IllegalArgumentException("This constructor is reserved for lifecycle V2.");
+        }
+        if (this.equipments.stream().anyMatch(equipment -> equipment.lifecycle() == null)) {
+            throw new IllegalArgumentException("Every V2 equipment must own its lifecycle.");
+        }
+
+        this.serviceType = null;
+        this.reportedIssue = null;
+        this.status = null;
+        this.diagnosis = null;
+        this.completedAt = null;
+        this.legacyStatus = null;
+        this.customerDecision = null;
+    }
+
+    public static WorkOrder createV2(WorkOrderId id, String customerName,
+                                     CustomerContact customerContact,
+                                     List<WorkOrderEquipment> equipments,
+                                     Instant receivedAt) {
+        return new WorkOrder(id, customerName, customerContact, equipments,
+                receivedAt, LifecycleVersion.V2);
+    }
+
     /**
      * Transitional compatibility constructor for the single-equipment API/persistence model.
      * It will be removed once I1 migrates all callers to the equipment collection.
