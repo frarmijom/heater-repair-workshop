@@ -20,9 +20,9 @@ public class JpaWorkOrderEntity {
     private String customerName;
     @Column(name = "customer_contact", nullable = false, length = 16)
     private String customerContact;
-    @Column(name = "heater_brand", nullable = false, length = 120)
+    @Column(name = "heater_brand", length = 120)
     private String heaterBrand;
-    @Column(name = "heater_model", nullable = false, length = 120)
+    @Column(name = "heater_model", length = 120)
     private String heaterModel;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
@@ -35,7 +35,7 @@ public class JpaWorkOrderEntity {
     @Column(name = "reported_issue", length = 2000)
     private String reportedIssue;
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
+    @Column(length = 32)
     private WorkOrderStatus status;
     @Column(length = 1000)
     private String diagnosis;

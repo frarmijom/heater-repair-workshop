@@ -112,13 +112,11 @@ class JpaWorkOrderPersistenceTest {
                     1,
                     lifecycle);
 
-            var order = new WorkOrder(
+            var order = WorkOrder.createV2(
                     new WorkOrderId("ORDER-" + UUID.randomUUID().toString().toUpperCase()),
                     "Maria",
                     new CustomerContact("+56911112222"),
                     java.util.List.of(v2Equipment),
-                    ServiceType.MAINTENANCE,
-                    null,
                     receivedAt);
 
             WorkOrder restored = roundTrip(adapter, em, order);
@@ -137,8 +135,13 @@ class JpaWorkOrderPersistenceTest {
             assertEquals(receivedAt, restoredEquipment.lifecycle().receivedAt());
             assertEquals(completedAt, restoredEquipment.lifecycle().completedAt());
 
-            // Existing V1 aggregate semantics remain untouched.
-            assertEquals(LifecycleVersion.V1, restored.lifecycleVersion());
+            assertEquals(LifecycleVersion.V2, restored.lifecycleVersion());
+            assertNull(restored.serviceType());
+            assertNull(restored.reportedIssue());
+            assertNull(restored.status());
+            assertNull(restored.diagnosis());
+            assertNull(restored.completedAt());
+            assertNull(restored.customerDecision());
         }
     }
 

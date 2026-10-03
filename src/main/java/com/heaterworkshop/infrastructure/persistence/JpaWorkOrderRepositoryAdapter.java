@@ -40,18 +40,39 @@ public class JpaWorkOrderRepositoryAdapter implements WorkOrderRepository {
     }
 
     private JpaWorkOrderEntity toEntity(WorkOrder order) {
+        boolean lifecycleV2 = order.lifecycleVersion() == com.heaterworkshop.domain.entity.LifecycleVersion.V2;
+
         return new JpaWorkOrderEntity(order.id().value(), order.customerName(),
-                order.customerContact().value(), order.heaterBrand(), order.heaterModel(),
-                order.serviceType(), order.reportedIssue(), order.status(),
-                order.diagnosis() == null ? null : order.diagnosis().value(),
-                order.receivedAt(), order.completedAt(), order.lifecycleVersion(), order.legacyStatus(), order.customerDecision(),
+                order.customerContact().value(),
+                lifecycleV2 ? null : order.heaterBrand(),
+                lifecycleV2 ? null : order.heaterModel(),
+                lifecycleV2 ? null : order.serviceType(),
+                lifecycleV2 ? null : order.reportedIssue(),
+                lifecycleV2 ? null : order.status(),
+                lifecycleV2 || order.diagnosis() == null ? null : order.diagnosis().value(),
+                order.receivedAt(),
+                lifecycleV2 ? null : order.completedAt(),
+                order.lifecycleVersion(),
+                lifecycleV2 ? null : order.legacyStatus(),
+                lifecycleV2 ? null : order.customerDecision(),
                 order.equipments().stream().map(this::toEquipmentEntity).toList());
     }
 
     private WorkOrder toDomain(JpaWorkOrderEntity entity) {
+        var equipments = entity.getEquipments().stream().map(this::toEquipmentDomain).toList();
+
+        if (entity.getLifecycleVersion() == com.heaterworkshop.domain.entity.LifecycleVersion.V2) {
+            return WorkOrder.createV2(
+                    new WorkOrderId(entity.getId()),
+                    entity.getCustomerName(),
+                    new CustomerContact(entity.getCustomerContact()),
+                    equipments,
+                    entity.getReceivedAt());
+        }
+
         return WorkOrder.restore(new WorkOrderId(entity.getId()), entity.getCustomerName(),
                 new CustomerContact(entity.getCustomerContact()),
-                entity.getEquipments().stream().map(this::toEquipmentDomain).toList(),
+                equipments,
                 // Only persisted historical rows may omit the service type.
                 entity.getServiceType() == null && entity.getLifecycleVersion() == com.heaterworkshop.domain.entity.LifecycleVersion.LEGACY
                         ? ServiceType.REPAIR : entity.getServiceType(),
