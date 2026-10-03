@@ -29,13 +29,16 @@ public class WorkOrderController {
     private final CompleteWorkUseCase complete;
     private final WorkOrderWorkflowUseCase workflow;
     private final WorkOrderEquipmentServiceUseCases equipmentServices;
+    private final WorkOrderEquipmentWorkflowUseCase equipmentWorkflow;
 
     public WorkOrderController(CreateWorkOrderUseCase create, ListWorkOrdersUseCase list,
                                  GetWorkOrderUseCase get,
                                  StartWorkUseCase start, CompleteWorkUseCase complete, WorkOrderWorkflowUseCase workflow,
-                                  WorkOrderEquipmentServiceUseCases equipmentServices) {
+                                  WorkOrderEquipmentServiceUseCases equipmentServices,
+                                  WorkOrderEquipmentWorkflowUseCase equipmentWorkflow) {
         this.create = create; this.list = list; this.get = get; this.start = start; this.complete = complete; this.workflow = workflow;
         this.equipmentServices = equipmentServices;
+        this.equipmentWorkflow = equipmentWorkflow;
     }
 
     @PostMapping
@@ -99,6 +102,78 @@ public class WorkOrderController {
         return equipmentServices.replace(new WorkOrderId(id), new EquipmentId(equipmentId), serviceIds).stream()
                 .map(WorkOrderEquipmentServiceResponse::from)
                 .toList();
+    }
+
+    @PatchMapping("/{id}/equipments/{equipmentId}/diagnosis/begin")
+    public WorkOrderResponse beginEquipmentDiagnosis(
+            @PathVariable String id,
+            @PathVariable UUID equipmentId) {
+        return WorkOrderResponse.from(equipmentWorkflow.beginDiagnosis(
+                new WorkOrderId(id), new EquipmentId(equipmentId)));
+    }
+
+    @PatchMapping("/{id}/equipments/{equipmentId}/diagnosis")
+    public WorkOrderResponse recordEquipmentDiagnosis(
+            @PathVariable String id,
+            @PathVariable UUID equipmentId,
+            @Valid @RequestBody RecordDiagnosisRequest request) {
+        return WorkOrderResponse.from(equipmentWorkflow.recordDiagnosis(
+                new WorkOrderId(id),
+                new EquipmentId(equipmentId),
+                new Diagnosis(request.diagnosis())));
+    }
+
+    @PatchMapping("/{id}/equipments/{equipmentId}/diagnosis/complete")
+    public WorkOrderResponse completeEquipmentDiagnosis(
+            @PathVariable String id,
+            @PathVariable UUID equipmentId) {
+        return WorkOrderResponse.from(equipmentWorkflow.completeDiagnosis(
+                new WorkOrderId(id), new EquipmentId(equipmentId)));
+    }
+
+    @PatchMapping("/{id}/equipments/{equipmentId}/approve")
+    public WorkOrderResponse approveEquipment(
+            @PathVariable String id,
+            @PathVariable UUID equipmentId,
+            @Valid @RequestBody ApproveWorkOrderRequest request) {
+        return WorkOrderResponse.from(equipmentWorkflow.approve(
+                new WorkOrderId(id),
+                new EquipmentId(equipmentId),
+                request.partsAvailable()));
+    }
+
+    @PatchMapping("/{id}/equipments/{equipmentId}/reject")
+    public WorkOrderResponse rejectEquipment(
+            @PathVariable String id,
+            @PathVariable UUID equipmentId) {
+        return WorkOrderResponse.from(equipmentWorkflow.reject(
+                new WorkOrderId(id), new EquipmentId(equipmentId)));
+    }
+
+    @PatchMapping("/{id}/equipments/{equipmentId}/waiting-parts")
+    public WorkOrderResponse waitForEquipmentParts(
+            @PathVariable String id,
+            @PathVariable UUID equipmentId) {
+        return WorkOrderResponse.from(equipmentWorkflow.waitForParts(
+                new WorkOrderId(id), new EquipmentId(equipmentId)));
+    }
+
+    @PatchMapping("/{id}/equipments/{equipmentId}/start")
+    public WorkOrderResponse startEquipmentWork(
+            @PathVariable String id,
+            @PathVariable UUID equipmentId) {
+        return WorkOrderResponse.from(equipmentWorkflow.startWork(
+                new WorkOrderId(id), new EquipmentId(equipmentId)));
+    }
+
+    @PatchMapping("/{id}/equipments/{equipmentId}/complete")
+    public WorkOrderResponse completeEquipmentWork(
+            @PathVariable String id,
+            @PathVariable UUID equipmentId) {
+        return WorkOrderResponse.from(equipmentWorkflow.complete(
+                new WorkOrderId(id),
+                new EquipmentId(equipmentId),
+                java.time.Instant.now()));
     }
 
     @PatchMapping("/{id}/diagnosis/begin")
