@@ -2,9 +2,13 @@ package com.heaterworkshop.application.usecase;
 
 import com.heaterworkshop.domain.entity.WorkOrder;
 import com.heaterworkshop.domain.entity.WorkOrderEquipment;
+import com.heaterworkshop.domain.entity.WorkOrderEquipmentLifecycle;
+import com.heaterworkshop.domain.entity.EquipmentIntakeRoute;
+import com.heaterworkshop.domain.entity.EquipmentType;
 import com.heaterworkshop.domain.entity.ServiceType;
 import com.heaterworkshop.domain.repository.WorkOrderRepository;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
+import com.heaterworkshop.domain.valueobject.EquipmentId;
 import com.heaterworkshop.domain.valueobject.WorkOrderId;
 
 import java.time.Clock;
@@ -36,6 +40,49 @@ public final class CreateWorkOrderUseCase {
                 equipments, serviceType, reportedIssue, Instant.now(clock));
         repository.save(order);
         return order;
+    }
+
+    public WorkOrder executeV2(String customerName, CustomerContact contact,
+                               List<EquipmentV2Input> equipmentInputs) {
+        Instant receivedAt = Instant.now(clock);
+
+        List<WorkOrderEquipment> equipments = equipmentInputs.stream()
+                .map(input -> new WorkOrderEquipment(
+                        new EquipmentId(UUID.randomUUID()),
+                        input.type(),
+                        input.brand(),
+                        input.model(),
+                        input.capacity(),
+                        input.serialNumber(),
+                        input.notes(),
+                        input.position(),
+                        WorkOrderEquipmentLifecycle.create(
+                                input.intakeRoute(),
+                                input.reportedIssue(),
+                                receivedAt)))
+                .toList();
+
+        String id = "ORDER-" + uuidSupplier.get().toString().toUpperCase(Locale.ROOT);
+        WorkOrder order = WorkOrder.createV2(
+                new WorkOrderId(id),
+                customerName,
+                contact,
+                equipments,
+                receivedAt);
+        repository.save(order);
+        return order;
+    }
+
+    public record EquipmentV2Input(
+            EquipmentType type,
+            String brand,
+            String model,
+            String capacity,
+            String serialNumber,
+            String notes,
+            int position,
+            EquipmentIntakeRoute intakeRoute,
+            String reportedIssue) {
     }
 
     /** Transitional overload for callers that still submit one legacy heater. */

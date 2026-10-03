@@ -2,6 +2,8 @@ package com.heaterworkshop.application.usecase;
 
 import com.heaterworkshop.domain.entity.WorkOrder;
 import com.heaterworkshop.domain.entity.WorkOrderEquipment;
+import com.heaterworkshop.domain.entity.EquipmentIntakeRoute;
+import com.heaterworkshop.domain.entity.EquipmentType;
 import com.heaterworkshop.domain.entity.ServiceType;
 import com.heaterworkshop.domain.exception.WorkOrderNotFoundException;
 import com.heaterworkshop.domain.valueobject.CustomerContact;
@@ -57,6 +59,50 @@ class CreateAndGetWorkOrderUseCaseTest {
         assertEquals(2, created.equipments().size());
         assertEquals("Junkers", created.equipments().get(0).brand());
         assertEquals("Mademsa", created.equipments().get(1).brand());
+        assertSame(created, repository.findById(created.id()).orElseThrow());
+    }
+
+    @Test
+    void createsV2OrderAndEquipmentsWithTheSameReceivedTimestamp() {
+        InMemoryWorkOrderRepository repository = new InMemoryWorkOrderRepository();
+        Instant receivedAt = Instant.parse("2026-10-03T15:00:00Z");
+
+        CreateWorkOrderUseCase create = new CreateWorkOrderUseCase(
+                repository,
+                Clock.fixed(receivedAt, ZoneOffset.UTC),
+                () -> UUID.fromString("550e8400-e29b-41d4-a716-446655440000"));
+
+        List<CreateWorkOrderUseCase.EquipmentV2Input> equipments = List.of(
+                new CreateWorkOrderUseCase.EquipmentV2Input(
+                        EquipmentType.CALEFONT,
+                        "Junkers",
+                        "WR11",
+                        "11 L",
+                        "SN-1",
+                        null,
+                        1,
+                        EquipmentIntakeRoute.DIRECT_SERVICE,
+                        null),
+                new CreateWorkOrderUseCase.EquipmentV2Input(
+                        EquipmentType.CALEFONT,
+                        "Bosch",
+                        "Therm 5700",
+                        "10 L",
+                        null,
+                        null,
+                        2,
+                        EquipmentIntakeRoute.DIAGNOSIS_REQUIRED,
+                        "Does not ignite"));
+
+        WorkOrder created = create.executeV2(
+                "Maria Gonzalez",
+                new CustomerContact("+56911112222"),
+                equipments);
+
+        assertEquals(receivedAt, created.receivedAt());
+        assertEquals(receivedAt, created.equipments().get(0).lifecycle().receivedAt());
+        assertEquals(receivedAt, created.equipments().get(1).lifecycle().receivedAt());
+        assertEquals("V2", created.lifecycleVersion().name());
         assertSame(created, repository.findById(created.id()).orElseThrow());
     }
 

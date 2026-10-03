@@ -58,6 +58,29 @@ public class WorkOrderController {
                 request.brand(), request.model(), request.capacity(), request.serialNumber(), request.notes(), request.position())).toList();
     }
 
+    @PostMapping("/v2")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Create a V2 work order with equipment-level lifecycle")
+    public WorkOrderResponse createV2(@Valid @RequestBody CreateWorkOrderV2Request request) {
+        List<CreateWorkOrderUseCase.EquipmentV2Input> equipments = request.equipments().stream()
+                .map(equipment -> new CreateWorkOrderUseCase.EquipmentV2Input(
+                        equipment.type(),
+                        equipment.brand(),
+                        equipment.model(),
+                        equipment.capacity(),
+                        equipment.serialNumber(),
+                        equipment.notes(),
+                        equipment.position(),
+                        equipment.intakeRoute(),
+                        equipment.reportedIssue()))
+                .toList();
+
+        return WorkOrderResponse.from(create.executeV2(
+                request.customerName(),
+                new CustomerContact(request.customerContact()),
+                equipments));
+    }
+
     @GetMapping
     @Operation(summary = "List work orders newest first")
     public List<WorkOrderResponse> list() {
